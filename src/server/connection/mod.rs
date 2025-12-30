@@ -94,6 +94,13 @@ impl<O: 'static> IncomingConnection<O> {
         self.stream.set_ttl(ttl)
     }
 
+    /// Set a timeout for the SOCKS5 handshake.
+    pub async fn authenticate_with_timeout(self, timeout: Duration) -> crate::Result<(Authenticated, O)> {
+        tokio::time::timeout(timeout, self.authenticate())
+            .await
+            .map_err(|_| crate::Error::String("handshake timeout".into()))?
+    }
+
     /// Perform a SOCKS5 authentication handshake using the given
     /// [`AuthExecutor`](crate::server::auth::AuthExecutor) adapter.
     ///
@@ -102,7 +109,7 @@ impl<O: 'static> IncomingConnection<O> {
     /// Otherwise, the error and the original [`TcpStream`](https://docs.rs/tokio/latest/tokio/net/struct.TcpStream.html) is returned.
     ///
     /// Note that this method will not implicitly close the connection even if the handshake failed.
-    pub async fn authenticate(mut self) -> std::io::Result<(Authenticated, O)> {
+    pub async fn authenticate(mut self) -> crate::Result<(Authenticated, O)> {
         let request = handshake::Request::retrieve_from_async_stream(&mut self.stream).await?;
         if let Some(method) = self.evaluate_request(&request) {
             let response = handshake::Response::new(method);
@@ -113,7 +120,7 @@ impl<O: 'static> IncomingConnection<O> {
             let response = handshake::Response::new(AuthMethod::NoAcceptableMethods);
             response.write_to_async_stream(&mut self.stream).await?;
             let err = "No available handshake method provided by client";
-            Err(std::io::Error::new(std::io::ErrorKind::Unsupported, err))
+            Err(crate::Error::Io(std::io::Error::new(std::io::ErrorKind::Unsupported, err)))
         }
     }
 
