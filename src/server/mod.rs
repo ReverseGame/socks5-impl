@@ -38,6 +38,10 @@ impl<O: 'static> Server<O> {
     /// Create a new socks5 server on the given socket address and authentication method.
     #[inline]
     pub async fn bind(addr: SocketAddr, auth: AuthAdaptor<O>) -> std::io::Result<Self> {
+        Self::bind_with_backlog(addr, auth, 1024).await
+    }
+
+    pub async fn bind_with_backlog(addr: SocketAddr, auth: AuthAdaptor<O>, backlog: u32) -> std::io::Result<Self> {
         let socket = if addr.is_ipv4() {
             tokio::net::TcpSocket::new_v4()?
         } else {
@@ -45,7 +49,7 @@ impl<O: 'static> Server<O> {
         };
         socket.set_reuseaddr(true)?;
         socket.bind(addr)?;
-        let listener = socket.listen(1024)?;
+        let listener = socket.listen(backlog)?;
         Ok(Self::new(listener, auth))
     }
 

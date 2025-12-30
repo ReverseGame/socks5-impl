@@ -132,7 +132,7 @@ where
         }
         ClientConnection::Connect(connect, addr) => {
             let target = match addr {
-                Address::DomainAddress(domain, port) => TcpStream::connect((domain, port)).await,
+                Address::DomainAddress(domain, port) => TcpStream::connect((&*domain, port)).await,
                 Address::SocketAddress(addr) => TcpStream::connect(addr).await,
             };
 

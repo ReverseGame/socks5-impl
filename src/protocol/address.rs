@@ -55,7 +55,7 @@ pub enum Address {
     /// Represents an IPv4 or IPv6 socket address.
     SocketAddress(SocketAddr),
     /// Represents a domain name and a port.
-    DomainAddress(String, u16),
+    DomainAddress(Box<str>, u16),
 }
 
 impl Address {
@@ -85,7 +85,7 @@ impl Address {
     pub fn domain(&self) -> String {
         match self {
             Self::SocketAddress(addr) => addr.ip().to_string(),
-            Self::DomainAddress(addr, _) => addr.clone(),
+            Self::DomainAddress(addr, _) => addr.to_string(),
         }
     }
 
@@ -135,7 +135,7 @@ impl StreamOperation for Address {
 
                 let addr = String::from_utf8(domain_buf)
                     .map_err(|err| std::io::Error::new(std::io::ErrorKind::InvalidData, format!("Invalid address encoding: {err}")))?;
-                Ok(Self::DomainAddress(addr, port))
+                Ok(Self::DomainAddress(addr.into_boxed_str(), port))
             }
             AddressType::IPv6 => {
                 let mut buf = [0; 18];
@@ -203,7 +203,7 @@ impl AsyncStreamOperation for Address {
 
                 let addr = String::from_utf8(domain_buf)
                     .map_err(|err| std::io::Error::new(std::io::ErrorKind::InvalidData, format!("Invalid address encoding: {err}")))?;
-                Ok(Self::DomainAddress(addr, port))
+                Ok(Self::DomainAddress(addr.into_boxed_str(), port))
             }
             AddressType::IPv6 => {
                 let mut addr_bytes = [0; 16];
@@ -221,7 +221,7 @@ impl ToSocketAddrs for Address {
     fn to_socket_addrs(&self) -> std::io::Result<Self::Iter> {
         match self {
             Address::SocketAddress(addr) => Ok(vec![*addr].into_iter()),
-            Address::DomainAddress(addr, port) => Ok((addr.as_str(), *port).to_socket_addrs()?),
+            Address::DomainAddress(addr, port) => Ok((&**addr, *port).to_socket_addrs()?),
         }
     }
 }
@@ -246,6 +246,8 @@ impl TryFrom<Address> for SocketAddr {
                     Ok(SocketAddr::from((addr, port)))
                 } else if let Ok(addr) = addr.parse::<Ipv6Addr>() {
                     Ok(SocketAddr::from((addr, port)))
+                } else if let Ok(addr) = addr.parse::<SocketAddr>() {
+                    Ok(addr)
                 } else {
                     let err = format!("domain address {addr} is not supported");
                     Err(Self::Error::new(std::io::ErrorKind::Unsupported, err))
@@ -321,13 +323,13 @@ impl From<(IpAddr, u16)> for Address {
 
 impl From<(String, u16)> for Address {
     fn from((addr, port): (String, u16)) -> Self {
-        Address::DomainAddress(addr, port)
+        Address::DomainAddress(addr.into_boxed_str(), port)
     }
 }
 
 impl From<(&str, u16)> for Address {
     fn from((addr, port): (&str, u16)) -> Self {
-        Address::DomainAddress(addr.to_owned(), port)
+        Address::DomainAddress(addr.into(), port)
     }
 }
 
@@ -350,7 +352,7 @@ impl TryFrom<&str> for Address {
                 (addr, "0")
             };
             let port = port.parse::<u16>()?;
-            Ok(Address::DomainAddress(addr.to_owned(), port))
+            Ok(Address::DomainAddress(addr.into(), port))
         }
     }
 }
@@ -371,7 +373,7 @@ fn test_address() {
     let addr2 = Address::retrieve_from_stream(&mut Cursor::new(&buf)).unwrap();
     assert_eq!(addr, addr2);
 
-    let addr = Address::from(("sex.com".to_owned(), 8080));
+    let addr = Address::from(("sex.com", 8080));
     let mut buf = Vec::new();
     addr.write_to_buf(&mut buf);
     assert_eq!(buf, vec![0x03, 0x07, b's', b'e', b'x', b'.', b'c', b'o', b'm', 0x1f, 0x90]);
@@ -396,7 +398,7 @@ async fn test_address_async() {
     let addr2 = Address::retrieve_from_async_stream(&mut Cursor::new(&buf)).await.unwrap();
     assert_eq!(addr, addr2);
 
-    let addr = Address::from(("sex.com".to_owned(), 8080));
+    let addr = Address::from(("sex.com", 8080));
     let mut buf = Vec::new();
     addr.write_to_async_stream(&mut buf).await.unwrap();
     assert_eq!(buf, vec![0x03, 0x07, b's', b'e', b'x', b'.', b'c', b'o', b'm', 0x1f, 0x90]);
