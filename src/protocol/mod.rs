@@ -64,7 +64,7 @@ pub trait StreamOperation {
         Self: Sized;
 
     fn write_to_stream<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
-        let mut buf = Vec::with_capacity(self.len());
+        let mut buf = bytes::BytesMut::with_capacity(self.len());
         self.write_to_buf(&mut buf);
         w.write_all(&buf)
     }

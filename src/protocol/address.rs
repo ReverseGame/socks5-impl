@@ -41,7 +41,7 @@ impl From<AddressType> for u8 {
     }
 }
 
-/// SOCKS5 Adderss Format
+/// SOCKS5 Address Format
 ///
 /// ```plain
 /// +------+----------+----------+
@@ -52,15 +52,19 @@ impl From<AddressType> for u8 {
 /// ```
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Address {
+    /// Represents an IPv4 or IPv6 socket address.
     SocketAddress(SocketAddr),
+    /// Represents a domain name and a port.
     DomainAddress(String, u16),
 }
 
 impl Address {
+    /// Returns an unspecified IPv4 address (0.0.0.0:0).
     pub fn unspecified() -> Self {
         Address::SocketAddress(SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)))
     }
 
+    /// Returns the type of the address (IPv4, IPv6, or Domain).
     pub fn get_type(&self) -> AddressType {
         match self {
             Self::SocketAddress(SocketAddr::V4(_)) => AddressType::IPv4,
@@ -69,6 +73,7 @@ impl Address {
         }
     }
 
+    /// Returns the port number.
     pub fn port(&self) -> u16 {
         match self {
             Self::SocketAddress(addr) => addr.port(),
@@ -76,6 +81,7 @@ impl Address {
         }
     }
 
+    /// Returns the domain name or IP address as a string.
     pub fn domain(&self) -> String {
         match self {
             Self::SocketAddress(addr) => addr.ip().to_string(),
@@ -83,6 +89,22 @@ impl Address {
         }
     }
 
+    /// Returns `true` if it is an IPv4 address.
+    pub fn is_ipv4(&self) -> bool {
+        matches!(self, Self::SocketAddress(SocketAddr::V4(_)))
+    }
+
+    /// Returns `true` if it is an IPv6 address.
+    pub fn is_ipv6(&self) -> bool {
+        matches!(self, Self::SocketAddress(SocketAddr::V6(_)))
+    }
+
+    /// Returns `true` if it is a domain address.
+    pub fn is_domain(&self) -> bool {
+        matches!(self, Self::DomainAddress(_, _))
+    }
+
+    /// Returns the maximum possible serialized length of a SOCKS5 address.
     pub const fn max_serialized_len() -> usize {
         1 + 1 + u8::MAX as usize + 2
     }
@@ -90,9 +112,9 @@ impl Address {
 
 impl StreamOperation for Address {
     fn retrieve_from_stream<R: std::io::Read>(stream: &mut R) -> std::io::Result<Self> {
-        let mut atyp = [0; 1];
-        stream.read_exact(&mut atyp)?;
-        match AddressType::try_from(atyp[0])? {
+        let mut atyp_buf = [0; 1];
+        stream.read_exact(&mut atyp_buf)?;
+        match AddressType::try_from(atyp_buf[0])? {
             AddressType::IPv4 => {
                 let mut buf = [0; 6];
                 stream.read_exact(&mut buf)?;
@@ -101,22 +123,18 @@ impl StreamOperation for Address {
                 Ok(Self::SocketAddress(SocketAddr::from((addr, port))))
             }
             AddressType::Domain => {
-                let mut len = [0; 1];
-                stream.read_exact(&mut len)?;
-                let len = len[0] as usize;
-                let mut buf = vec![0; len + 2];
-                stream.read_exact(&mut buf)?;
+                let mut len_buf = [0; 1];
+                stream.read_exact(&mut len_buf)?;
+                let len = len_buf[0] as usize;
+                let mut domain_buf = vec![0; len];
+                stream.read_exact(&mut domain_buf)?;
 
-                let port = u16::from_be_bytes([buf[len], buf[len + 1]]);
-                buf.truncate(len);
+                let mut port_buf = [0; 2];
+                stream.read_exact(&mut port_buf)?;
+                let port = u16::from_be_bytes(port_buf);
 
-                let addr = match String::from_utf8(buf) {
-                    Ok(addr) => addr,
-                    Err(err) => {
-                        let err = format!("Invalid address encoding: {err}");
-                        return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, err));
-                    }
-                };
+                let addr = String::from_utf8(domain_buf)
+                    .map_err(|err| std::io::Error::new(std::io::ErrorKind::InvalidData, format!("Invalid address encoding: {err}")))?;
                 Ok(Self::DomainAddress(addr, port))
             }
             AddressType::IPv6 => {
@@ -173,35 +191,24 @@ impl AsyncStreamOperation for Address {
             AddressType::IPv4 => {
                 let mut addr_bytes = [0; 4];
                 stream.read_exact(&mut addr_bytes).await?;
-                let mut buf = [0; 2];
-                stream.read_exact(&mut buf).await?;
+                let port = stream.read_u16().await?;
                 let addr = Ipv4Addr::from(addr_bytes);
-                let port = u16::from_be_bytes(buf);
                 Ok(Self::SocketAddress(SocketAddr::from((addr, port))))
             }
             AddressType::Domain => {
                 let len = stream.read_u8().await? as usize;
-                let mut buf = vec![0; len + 2];
-                stream.read_exact(&mut buf).await?;
+                let mut domain_buf = vec![0; len];
+                stream.read_exact(&mut domain_buf).await?;
+                let port = stream.read_u16().await?;
 
-                let port = u16::from_be_bytes([buf[len], buf[len + 1]]);
-                buf.truncate(len);
-
-                let addr = match String::from_utf8(buf) {
-                    Ok(addr) => addr,
-                    Err(err) => {
-                        let err = format!("Invalid address encoding: {err}");
-                        return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, err));
-                    }
-                };
+                let addr = String::from_utf8(domain_buf)
+                    .map_err(|err| std::io::Error::new(std::io::ErrorKind::InvalidData, format!("Invalid address encoding: {err}")))?;
                 Ok(Self::DomainAddress(addr, port))
             }
             AddressType::IPv6 => {
                 let mut addr_bytes = [0; 16];
                 stream.read_exact(&mut addr_bytes).await?;
-                let mut buf = [0; 2];
-                stream.read_exact(&mut buf).await?;
-                let port = u16::from_be_bytes(buf);
+                let port = stream.read_u16().await?;
                 Ok(Self::SocketAddress(SocketAddr::from((Ipv6Addr::from(addr_bytes), port))))
             }
         }

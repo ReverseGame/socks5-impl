@@ -37,6 +37,12 @@ pub enum Error {
     #[error("Utf8Error: {0}")]
     Utf8Error(#[from] std::str::Utf8Error),
 
+    #[error("Invalid address: {0}")]
+    InvalidAddress(String),
+
+    #[error("Domain name too long: {0}")]
+    DomainTooLong(usize),
+
     #[error("{0}")]
     String(String),
 }
