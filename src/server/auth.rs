@@ -25,7 +25,7 @@ use tokio::net::TcpStream;
 ///         AuthMethod::from(0x80)
 ///     }
 ///
-///     async fn execute(&self, stream: &mut TcpStream) -> Self::Output {
+///     async fn execute(&self, stream: &mut TcpStream, _remote_ip: &str) -> Self::Output {
 ///         // do something
 ///         Ok(1145141919810)
 ///     }
@@ -35,6 +35,7 @@ use tokio::net::TcpStream;
 pub trait AuthExecutor {
     type Output;
     fn auth_method(&self) -> AuthMethod;
+    fn set_method(&mut self, _: AuthMethod) {}
     async fn execute(&self, stream: &mut TcpStream) -> Self::Output;
 }
 
@@ -74,7 +75,8 @@ impl AuthExecutor for UserKeyAuth {
         AuthMethod::UserPass
     }
 
-    async fn execute(&self, stream: &mut TcpStream) -> Self::Output {
+    async fn execute(&self, stream: &mut TcpStream) -> Self::Output
+    {
         use password_method::{Request, Response, Status::*};
         let req = Request::retrieve_from_async_stream(stream).await?;
 

@@ -2,26 +2,25 @@ use crate::protocol::{Address, AsyncStreamOperation, Reply, Response, StreamOper
 use bytes::{Bytes, BytesMut};
 use std::{
     net::SocketAddr,
-    pin::Pin,
     sync::atomic::{AtomicUsize, Ordering},
-    task::{Context, Poll},
     time::Duration,
 };
 use tokio::{
-    io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ReadBuf},
-    net::{TcpStream, ToSocketAddrs, UdpSocket},
+    io::{AsyncReadExt, AsyncWriteExt},
+    net::{ToSocketAddrs, UdpSocket},
 };
+use crate::server::connection::stream::Stream;
 
 /// Socks5 connection type `UdpAssociate`
 #[derive(Debug)]
 pub struct UdpAssociate<S> {
-    stream: TcpStream,
+    pub stream: Stream,
     _state: S,
 }
 
 impl<S: Default> UdpAssociate<S> {
     #[inline]
-    pub(super) fn new(stream: TcpStream) -> Self {
+    pub(super) fn new(stream: Stream) -> Self {
         Self {
             stream,
             _state: S::default(),
@@ -33,7 +32,7 @@ impl<S: Default> UdpAssociate<S> {
     /// If encountered an error while writing the reply, the error alongside the original `TcpStream` is returned.
     pub async fn reply(mut self, reply: Reply, addr: Address) -> std::io::Result<UdpAssociate<Ready>> {
         let resp = Response::new(reply, addr);
-        resp.write_to_async_stream(&mut self.stream).await?;
+        resp.write_to_async_stream(&mut self.stream.stream).await?;
         Ok(UdpAssociate::<Ready>::new(self.stream))
     }
 
@@ -61,18 +60,6 @@ impl<S: Default> UdpAssociate<S> {
     #[inline]
     pub fn linger(&self) -> std::io::Result<Option<Duration>> {
         self.stream.linger()
-    }
-
-    /// Sets the linger duration of this socket by setting the `SO_LINGER` option.
-    ///
-    /// This option controls the action taken when a stream has unsent messages and the stream is closed. If `SO_LINGER` is set,
-    /// the system shall block the process until it can transmit the data or until the time expires.
-    ///
-    /// If `SO_LINGER` is not specified, and the stream is closed, the system handles the call in a way
-    /// that allows the process to continue as quickly as possible.
-    #[inline]
-    pub fn set_linger(&self, dur: Option<Duration>) -> std::io::Result<()> {
-        self.stream.set_linger(dur)
     }
 
     /// Gets the value of the `TCP_NODELAY` option on this socket.
@@ -129,47 +116,7 @@ impl UdpAssociate<Ready> {
     }
 }
 
-impl std::ops::Deref for UdpAssociate<Ready> {
-    type Target = TcpStream;
-
-    #[inline]
-    fn deref(&self) -> &Self::Target {
-        &self.stream
-    }
-}
-
-impl std::ops::DerefMut for UdpAssociate<Ready> {
-    #[inline]
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.stream
-    }
-}
-
-impl AsyncRead for UdpAssociate<Ready> {
-    #[inline]
-    fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<std::io::Result<()>> {
-        Pin::new(&mut self.stream).poll_read(cx, buf)
-    }
-}
-
-impl AsyncWrite for UdpAssociate<Ready> {
-    #[inline]
-    fn poll_write(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<std::io::Result<usize>> {
-        Pin::new(&mut self.stream).poll_write(cx, buf)
-    }
-
-    #[inline]
-    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
-        Pin::new(&mut self.stream).poll_flush(cx)
-    }
-
-    #[inline]
-    fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
-        Pin::new(&mut self.stream).poll_shutdown(cx)
-    }
-}
-
-impl<S> From<UdpAssociate<S>> for TcpStream {
+impl<S> From<UdpAssociate<S>> for Stream {
     #[inline]
     fn from(conn: UdpAssociate<S>) -> Self {
         conn.stream
