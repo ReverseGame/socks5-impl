@@ -1,4 +1,5 @@
 use crate::protocol::{Address, AsyncStreamOperation, Reply, Response, StreamOperation, UdpHeader};
+use crate::server::connection::stream::Stream;
 use bytes::{Bytes, BytesMut};
 use std::{
     net::SocketAddr,
@@ -8,7 +9,6 @@ use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{ToSocketAddrs, UdpSocket},
 };
-use crate::server::connection::stream::Stream;
 
 /// Socks5 connection type `UdpAssociate`
 #[derive(Debug)]

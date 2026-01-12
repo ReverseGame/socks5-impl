@@ -75,8 +75,7 @@ impl AuthExecutor for UserKeyAuth {
         AuthMethod::UserPass
     }
 
-    async fn execute(&self, stream: &mut TcpStream) -> Self::Output
-    {
+    async fn execute(&self, stream: &mut TcpStream) -> Self::Output {
         use password_method::{Request, Response, Status::*};
         let req = Request::retrieve_from_async_stream(stream).await?;
 

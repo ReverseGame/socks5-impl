@@ -1,10 +1,6 @@
 use crate::protocol::{Address, AsyncStreamOperation, Reply, Response};
-use tokio::{
-    net::{
-        tcp::{ReadHalf, WriteHalf},
-    },
-};
 use crate::server::connection::stream::Stream;
+use tokio::net::tcp::{ReadHalf, WriteHalf};
 
 /// Socks5 connection type `Connect`
 ///

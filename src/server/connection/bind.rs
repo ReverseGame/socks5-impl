@@ -1,13 +1,7 @@
 use crate::protocol::{Address, AsyncStreamOperation, Reply, Response};
-use std::{
-    marker::PhantomData,
-};
-use tokio::{
-    net::{
-        tcp::{ReadHalf, WriteHalf},
-    },
-};
 use crate::server::connection::stream::Stream;
+use std::marker::PhantomData;
+use tokio::net::tcp::{ReadHalf, WriteHalf};
 
 /// Socks5 command type `Bind`
 ///

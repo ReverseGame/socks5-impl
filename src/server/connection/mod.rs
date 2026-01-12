@@ -1,11 +1,9 @@
 use self::{associate::UdpAssociate, bind::Bind, connect::Connect};
-use crate::{
-    protocol::{self, Address, AsyncStreamOperation, AuthMethod, Command, handshake},
-};
-use std::time::Duration;
-use tokio::{net::TcpStream};
+use crate::protocol::{self, Address, AsyncStreamOperation, AuthMethod, Command, handshake};
 use crate::server::auth::AuthExecutor;
 use crate::server::connection::stream::Stream;
+use std::time::Duration;
+use tokio::net::TcpStream;
 
 pub mod associate;
 pub mod bind;
@@ -25,8 +23,7 @@ impl<O: AuthExecutor> IncomingConnection<O> {
         IncomingConnection { stream, auth }
     }
     /// Set a timeout for the SOCKS5 handshake.
-    pub async fn authenticate_with_timeout(self, timeout: Duration) -> crate::Result<(Authenticated, O::Output)>
-    {
+    pub async fn authenticate_with_timeout(self, timeout: Duration) -> crate::Result<(Authenticated, O::Output)> {
         tokio::time::timeout(timeout, self.authenticate())
             .await
             .map_err(|_| crate::Error::String("handshake timeout".into()))?
@@ -40,8 +37,7 @@ impl<O: AuthExecutor> IncomingConnection<O> {
     /// Otherwise, the error and the original [`TcpStream`](https://docs.rs/tokio/latest/tokio/net/struct.TcpStream.html) is returned.
     ///
     /// Note that this method will not implicitly close the connection even if the handshake failed.
-    pub async fn authenticate(mut self) -> crate::Result<(Authenticated, O::Output)>
-    {
+    pub async fn authenticate(mut self) -> crate::Result<(Authenticated, O::Output)> {
         let request = handshake::Request::retrieve_from_async_stream(&mut self.stream).await?;
         if let Some(method) = self.evaluate_request(&request) {
             self.auth.set_method(method);

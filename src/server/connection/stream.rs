@@ -6,15 +6,13 @@ use tokio::net::TcpStream;
 
 #[derive(Debug)]
 pub struct Stream {
-    pub stream: TcpStream
+    pub stream: TcpStream,
 }
 
 impl Stream {
     #[inline]
     pub fn new(stream: TcpStream) -> Self {
-        Self {
-            stream
-        }
+        Self { stream }
     }
     /// Causes the other peer to receive a read of length 0, indicating that no more data will be sent. This only closes the stream in one direction.
     #[inline]
@@ -41,7 +39,6 @@ impl Stream {
     pub fn linger(&self) -> std::io::Result<Option<Duration>> {
         self.stream.linger()
     }
-
 
     /// Gets the value of the `TCP_NODELAY` option on this socket.
     ///
@@ -84,7 +81,6 @@ impl Deref for Stream {
 }
 
 impl DerefMut for Stream {
-
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.stream
     }
@@ -94,7 +90,7 @@ impl DerefMut for Stream {
 impl Drop for Stream {
     fn drop(&mut self) {
         tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(async { 
+            tokio::runtime::Handle::current().block_on(async {
                 let _ = self.stream.shutdown().await;
             });
         });
