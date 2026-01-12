@@ -1,9 +1,5 @@
 use crate::protocol::{Address, AsyncStreamOperation, Reply, Response};
-use std::{
-    net::SocketAddr,
-};
 use tokio::{
-    io::AsyncWriteExt,
     net::{
         tcp::{ReadHalf, WriteHalf},
     },
@@ -26,24 +22,6 @@ impl<S: Default> Connect<S> {
             stream,
             _state: S::default(),
         }
-    }
-
-    /// Returns the local address that this stream is bound to.
-    #[inline]
-    pub fn local_addr(&self) -> std::io::Result<SocketAddr> {
-        self.stream.local_addr()
-    }
-
-    /// Returns the remote address that this stream is connected to.
-    #[inline]
-    pub fn peer_addr(&self) -> std::io::Result<SocketAddr> {
-        self.stream.peer_addr()
-    }
-
-    /// Shutdown the TCP stream.
-    #[inline]
-    pub async fn shutdown(&mut self) -> std::io::Result<()> {
-        self.stream.shutdown().await
     }
 }
 

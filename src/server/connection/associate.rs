@@ -3,7 +3,6 @@ use bytes::{Bytes, BytesMut};
 use std::{
     net::SocketAddr,
     sync::atomic::{AtomicUsize, Ordering},
-    time::Duration,
 };
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
@@ -34,63 +33,6 @@ impl<S: Default> UdpAssociate<S> {
         let resp = Response::new(reply, addr);
         resp.write_to_async_stream(&mut self.stream.stream).await?;
         Ok(UdpAssociate::<Ready>::new(self.stream))
-    }
-
-    /// Causes the other peer to receive a read of length 0, indicating that no more data will be sent. This only closes the stream in one direction.
-    #[inline]
-    pub async fn shutdown(&mut self) -> std::io::Result<()> {
-        self.stream.shutdown().await
-    }
-
-    /// Returns the local address that this stream is bound to.
-    #[inline]
-    pub fn local_addr(&self) -> std::io::Result<SocketAddr> {
-        self.stream.local_addr()
-    }
-
-    /// Returns the remote address that this stream is connected to.
-    #[inline]
-    pub fn peer_addr(&self) -> std::io::Result<SocketAddr> {
-        self.stream.peer_addr()
-    }
-
-    /// Reads the linger duration for this socket by getting the `SO_LINGER` option.
-    ///
-    /// For more information about this option, see [`set_linger`](#method.set_linger).
-    #[inline]
-    pub fn linger(&self) -> std::io::Result<Option<Duration>> {
-        self.stream.linger()
-    }
-
-    /// Gets the value of the `TCP_NODELAY` option on this socket.
-    ///
-    /// For more information about this option, see [`set_nodelay`](#method.set_nodelay).
-    #[inline]
-    pub fn nodelay(&self) -> std::io::Result<bool> {
-        self.stream.nodelay()
-    }
-
-    /// Sets the value of the `TCP_NODELAY` option on this socket.
-    ///
-    /// If set, this option disables the Nagle algorithm. This means that segments are always sent as soon as possible,
-    /// even if there is only a small amount of data. When not set, data is buffered until there is a sufficient amount to send out,
-    /// thereby avoiding the frequent sending of small packets.
-    pub fn set_nodelay(&self, nodelay: bool) -> std::io::Result<()> {
-        self.stream.set_nodelay(nodelay)
-    }
-
-    /// Gets the value of the `IP_TTL` option for this socket.
-    ///
-    /// For more information about this option, see [`set_ttl`](#method.set_ttl).
-    pub fn ttl(&self) -> std::io::Result<u32> {
-        self.stream.ttl()
-    }
-
-    /// Sets the value for the `IP_TTL` option on this socket.
-    ///
-    /// This value sets the time-to-live field that is used in every packet sent from this socket.
-    pub fn set_ttl(&self, ttl: u32) -> std::io::Result<()> {
-        self.stream.set_ttl(ttl)
     }
 }
 
