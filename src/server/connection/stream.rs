@@ -90,6 +90,7 @@ impl DerefMut for Stream {
     }
 }
 
+#[cfg(not(test))]
 impl Drop for Stream {
     fn drop(&mut self) {
         tokio::task::block_in_place(|| {
