@@ -6,7 +6,7 @@ use std::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
+    io::AsyncReadExt,
     net::{ToSocketAddrs, UdpSocket},
 };
 
@@ -29,9 +29,13 @@ impl<S: Default> UdpAssociate<S> {
     /// Reply to the SOCKS5 client with the given reply and address.
     ///
     /// If encountered an error while writing the reply, the error alongside the original `TcpStream` is returned.
-    pub async fn reply(mut self, reply: Reply, addr: Address) -> std::io::Result<UdpAssociate<Ready>> {
+    pub async fn reply(
+        mut self,
+        reply: Reply,
+        addr: Address,
+    ) -> std::io::Result<UdpAssociate<Ready>> {
         let resp = Response::new(reply, addr);
-        resp.write_to_async_stream(&mut self.stream.stream).await?;
+        resp.write_to_async_stream(&mut *self.stream).await?;
         Ok(UdpAssociate::<Ready>::new(self.stream))
     }
 }
@@ -75,10 +79,17 @@ impl<S> From<UdpAssociate<S>> for Stream {
 /// You can create this struct by using [`AssociatedUdpSocket::from::<(UdpSocket, usize)>()`](#impl-From<UdpSocket>),
 /// the first element of the tuple is the UDP socket, the second element is the receiving buffer size.
 ///
-/// This struct can also be revert into a raw tokio UDP socket with [`UdpSocket::from::<AssociatedUdpSocket>()`](#impl-From<AssociatedUdpSocket>).
+/// This struct can also be revert into a raw tokio UDP socket with [`UdpSocket::from::<AssociatedUdpSocket>()`](#impl-From<AssociatedUdpSocket>>.
 ///
 /// [`AssociatedUdpSocket`] can be used as the associated UDP socket.
+///
+/// # Performance Note
+///
+/// This struct is aligned to 64 bytes (typical cache line size) to prevent false sharing
+/// in multi-threaded scenarios where the atomic `buf_size` field is frequently accessed
+/// concurrently with the socket operations.
 #[derive(Debug)]
+#[repr(align(64))]
 pub struct AssociatedUdpSocket {
     socket: UdpSocket,
     buf_size: AtomicUsize,
@@ -107,39 +118,54 @@ impl AssociatedUdpSocket {
     /// The [`connect`](#method.connect) method will connect this socket to a remote address.
     /// This method will fail if the socket is not connected.
     pub async fn recv(&self) -> std::io::Result<(Bytes, u8, Address)> {
+        let max_packet_size = self.buf_size.load(Ordering::Acquire);
+        // 使用 BytesMut 避免初始化开销，并支持潜在的缓冲区复用
+        let mut buf = BytesMut::zeroed(max_packet_size);
+
         loop {
-            let max_packet_size = self.buf_size.load(Ordering::Acquire);
-            let mut buf = vec![0; max_packet_size];
             let len = self.socket.recv(&mut buf).await?;
-            buf.truncate(len);
-            let pkt = Bytes::from(buf);
+            let pkt = buf.split_to(len).freeze();
 
             if let Ok(header) = UdpHeader::retrieve_from_async_stream(&mut pkt.as_ref()).await {
                 let pkt = pkt.slice(header.len()..);
                 return Ok((pkt, header.frag, header.address));
             }
+
+            // 解析失败，重置缓冲区以便重试
+            buf.clear();
+            buf.resize(max_packet_size, 0);
         }
     }
 
     /// Receives a socks5 UDP relay packet on the socket from the any remote address.
     /// On success, returns the packet itself, the fragment number, the remote target address and the source address.
     pub async fn recv_from(&self) -> std::io::Result<(Bytes, u8, Address, SocketAddr)> {
+        let max_packet_size = self.buf_size.load(Ordering::Acquire);
+        // 使用 BytesMut 避免初始化开销，并支持潜在的缓冲区复用
+        let mut buf = BytesMut::zeroed(max_packet_size);
+
         loop {
-            let max_packet_size = self.buf_size.load(Ordering::Acquire);
-            let mut buf = vec![0; max_packet_size];
             let (len, src_addr) = self.socket.recv_from(&mut buf).await?;
-            buf.truncate(len);
-            let pkt = Bytes::from(buf);
+            let pkt = buf.split_to(len).freeze();
 
             if let Ok(header) = UdpHeader::retrieve_from_async_stream(&mut pkt.as_ref()).await {
                 let pkt = pkt.slice(header.len()..);
                 return Ok((pkt, header.frag, header.address, src_addr));
             }
+
+            // 解析失败，重置缓冲区以便重试
+            buf.clear();
+            buf.resize(max_packet_size, 0);
         }
     }
 
     /// Sends a UDP relay packet to the remote address to which it is connected. The socks5 UDP header will be added to the packet.
-    pub async fn send<P: AsRef<[u8]>>(&self, pkt: P, frag: u8, from_addr: Address) -> std::io::Result<usize> {
+    pub async fn send<P: AsRef<[u8]>>(
+        &self,
+        pkt: P,
+        frag: u8,
+        from_addr: Address,
+    ) -> std::io::Result<usize> {
         let header = UdpHeader::new(frag, from_addr);
         let mut buf = BytesMut::with_capacity(header.len() + pkt.as_ref().len());
         header.write_to_buf(&mut buf);
@@ -149,13 +175,22 @@ impl AssociatedUdpSocket {
     }
 
     /// Sends a UDP relay packet to a specified remote address to which it is connected. The socks5 UDP header will be added to the packet.
-    pub async fn send_to<P: AsRef<[u8]>>(&self, pkt: P, frag: u8, from_addr: Address, to_addr: SocketAddr) -> std::io::Result<usize> {
+    pub async fn send_to<P: AsRef<[u8]>>(
+        &self,
+        pkt: P,
+        frag: u8,
+        from_addr: Address,
+        to_addr: SocketAddr,
+    ) -> std::io::Result<usize> {
         let header = UdpHeader::new(frag, from_addr);
         let mut buf = BytesMut::with_capacity(header.len() + pkt.as_ref().len());
         header.write_to_buf(&mut buf);
         buf.extend_from_slice(pkt.as_ref());
 
-        self.socket.send_to(&buf, to_addr).await.map(|len| len - header.len())
+        self.socket
+            .send_to(&buf, to_addr)
+            .await
+            .map(|len| len - header.len())
     }
 }
 

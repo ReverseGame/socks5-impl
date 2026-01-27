@@ -42,9 +42,13 @@ impl Bind<NeedFirstReply> {
     /// Reply to the SOCKS5 client with the given reply and address.
     ///
     /// If encountered an error while writing the reply, the error alongside the original `TcpStream` is returned.
-    pub async fn reply(mut self, reply: Reply, addr: Address) -> std::io::Result<Bind<NeedSecondReply>> {
+    pub async fn reply(
+        mut self,
+        reply: Reply,
+        addr: Address,
+    ) -> std::io::Result<Bind<NeedSecondReply>> {
         let resp = Response::new(reply, addr);
-        resp.write_to_async_stream(&mut self.stream.stream).await?;
+        resp.write_to_async_stream(&mut *self.stream).await?;
         Ok(Bind::<NeedSecondReply>::new(self.stream))
     }
 }
@@ -61,10 +65,14 @@ impl Bind<NeedSecondReply> {
     /// Reply to the SOCKS5 client with the given reply and address.
     ///
     /// If encountered an error while writing the reply, the error alongside the original `TcpStream` is returned.
-    pub async fn reply(mut self, reply: Reply, addr: Address) -> Result<Bind<Ready>, (std::io::Error, Stream)> {
+    pub async fn reply(
+        mut self,
+        reply: Reply,
+        addr: Address,
+    ) -> Result<Bind<Ready>, (std::io::Error, Stream)> {
         let resp = Response::new(reply, addr);
 
-        if let Err(err) = resp.write_to_async_stream(&mut self.stream.stream).await {
+        if let Err(err) = resp.write_to_async_stream(&mut *self.stream).await {
             return Err((err, self.stream));
         }
 

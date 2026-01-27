@@ -32,7 +32,7 @@ impl Connect<NeedReply> {
     #[inline]
     pub async fn reply(mut self, reply: Reply, addr: Address) -> std::io::Result<Connect<Ready>> {
         let resp = Response::new(reply, addr);
-        resp.write_to_async_stream(&mut self.stream.stream).await?;
+        resp.write_to_async_stream(&mut *self.stream).await?;
         Ok(Connect::<Ready>::new(self.stream))
     }
 }
@@ -41,7 +41,7 @@ impl Connect<Ready> {
     /// Returns the read/write half of the stream.
     #[inline]
     pub fn split(&mut self) -> (ReadHalf<'_>, WriteHalf<'_>) {
-        self.stream.stream.split()
+        (*self.stream).split()
     }
 }
 

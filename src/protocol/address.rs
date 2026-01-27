@@ -126,16 +126,41 @@ impl StreamOperation for Address {
                 let mut len_buf = [0; 1];
                 stream.read_exact(&mut len_buf)?;
                 let len = len_buf[0] as usize;
-                let mut domain_buf = vec![0; len];
-                stream.read_exact(&mut domain_buf)?;
 
-                let mut port_buf = [0; 2];
-                stream.read_exact(&mut port_buf)?;
-                let port = u16::from_be_bytes(port_buf);
+                // 优化：对于常见的短域名（<=128字节），使用栈分配
+                const STACK_BUF_SIZE: usize = 128;
+                let addr = if len <= STACK_BUF_SIZE {
+                    let mut buf = [0u8; STACK_BUF_SIZE];
+                    stream.read_exact(&mut buf[..len])?;
 
-                let addr = String::from_utf8(domain_buf)
-                    .map_err(|err| std::io::Error::new(std::io::ErrorKind::InvalidData, format!("Invalid address encoding: {err}")))?;
-                Ok(Self::DomainAddress(addr.into_boxed_str(), port))
+                    let mut port_buf = [0; 2];
+                    stream.read_exact(&mut port_buf)?;
+                    let port = u16::from_be_bytes(port_buf);
+
+                    let domain = String::from_utf8(buf[..len].to_vec()).map_err(|err| {
+                        std::io::Error::new(
+                            std::io::ErrorKind::InvalidData,
+                            format!("Invalid address encoding: {err}"),
+                        )
+                    })?;
+                    Self::DomainAddress(domain.into_boxed_str(), port)
+                } else {
+                    let mut domain_buf = vec![0; len];
+                    stream.read_exact(&mut domain_buf)?;
+
+                    let mut port_buf = [0; 2];
+                    stream.read_exact(&mut port_buf)?;
+                    let port = u16::from_be_bytes(port_buf);
+
+                    let domain = String::from_utf8(domain_buf).map_err(|err| {
+                        std::io::Error::new(
+                            std::io::ErrorKind::InvalidData,
+                            format!("Invalid address encoding: {err}"),
+                        )
+                    })?;
+                    Self::DomainAddress(domain.into_boxed_str(), port)
+                };
+                Ok(addr)
             }
             AddressType::IPv6 => {
                 let mut buf = [0; 18];
@@ -143,7 +168,10 @@ impl StreamOperation for Address {
                 let port = u16::from_be_bytes([buf[16], buf[17]]);
                 let mut addr_bytes = [0; 16];
                 addr_bytes.copy_from_slice(&buf[..16]);
-                Ok(Self::SocketAddress(SocketAddr::from((Ipv6Addr::from(addr_bytes), port))))
+                Ok(Self::SocketAddress(SocketAddr::from((
+                    Ipv6Addr::from(addr_bytes),
+                    port,
+                ))))
             }
         }
     }
@@ -197,19 +225,44 @@ impl AsyncStreamOperation for Address {
             }
             AddressType::Domain => {
                 let len = stream.read_u8().await? as usize;
-                let mut domain_buf = vec![0; len];
-                stream.read_exact(&mut domain_buf).await?;
-                let port = stream.read_u16().await?;
 
-                let addr = String::from_utf8(domain_buf)
-                    .map_err(|err| std::io::Error::new(std::io::ErrorKind::InvalidData, format!("Invalid address encoding: {err}")))?;
-                Ok(Self::DomainAddress(addr.into_boxed_str(), port))
+                // 优化：对于常见的短域名（<=128字节），使用栈分配
+                const STACK_BUF_SIZE: usize = 128;
+                let addr = if len <= STACK_BUF_SIZE {
+                    let mut buf = [0u8; STACK_BUF_SIZE];
+                    stream.read_exact(&mut buf[..len]).await?;
+                    let port = stream.read_u16().await?;
+
+                    let domain = String::from_utf8(buf[..len].to_vec()).map_err(|err| {
+                        std::io::Error::new(
+                            std::io::ErrorKind::InvalidData,
+                            format!("Invalid address encoding: {err}"),
+                        )
+                    })?;
+                    Self::DomainAddress(domain.into_boxed_str(), port)
+                } else {
+                    let mut domain_buf = vec![0; len];
+                    stream.read_exact(&mut domain_buf).await?;
+                    let port = stream.read_u16().await?;
+
+                    let domain = String::from_utf8(domain_buf).map_err(|err| {
+                        std::io::Error::new(
+                            std::io::ErrorKind::InvalidData,
+                            format!("Invalid address encoding: {err}"),
+                        )
+                    })?;
+                    Self::DomainAddress(domain.into_boxed_str(), port)
+                };
+                Ok(addr)
             }
             AddressType::IPv6 => {
                 let mut addr_bytes = [0; 16];
                 stream.read_exact(&mut addr_bytes).await?;
                 let port = stream.read_u16().await?;
-                Ok(Self::SocketAddress(SocketAddr::from((Ipv6Addr::from(addr_bytes), port))))
+                Ok(Self::SocketAddress(SocketAddr::from((
+                    Ipv6Addr::from(addr_bytes),
+                    port,
+                ))))
             }
         }
     }
@@ -369,14 +422,24 @@ fn test_address() {
     let addr = Address::from((Ipv6Addr::new(0x45, 0xff89, 0, 0, 0, 0, 0, 1), 8080));
     let mut buf = Vec::new();
     addr.write_to_buf(&mut buf);
-    assert_eq!(buf, vec![0x04, 0, 0x45, 0xff, 0x89, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0x1f, 0x90]);
+    assert_eq!(
+        buf,
+        vec![
+            0x04, 0, 0x45, 0xff, 0x89, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0x1f, 0x90
+        ]
+    );
     let addr2 = Address::retrieve_from_stream(&mut Cursor::new(&buf)).unwrap();
     assert_eq!(addr, addr2);
 
     let addr = Address::from(("sex.com", 8080));
     let mut buf = Vec::new();
     addr.write_to_buf(&mut buf);
-    assert_eq!(buf, vec![0x03, 0x07, b's', b'e', b'x', b'.', b'c', b'o', b'm', 0x1f, 0x90]);
+    assert_eq!(
+        buf,
+        vec![
+            0x03, 0x07, b's', b'e', b'x', b'.', b'c', b'o', b'm', 0x1f, 0x90
+        ]
+    );
     let addr2 = Address::retrieve_from_stream(&mut Cursor::new(&buf)).unwrap();
     assert_eq!(addr, addr2);
 }
@@ -388,20 +451,36 @@ async fn test_address_async() {
     let mut buf = Vec::new();
     addr.write_to_async_stream(&mut buf).await.unwrap();
     assert_eq!(buf, vec![0x01, 127, 0, 0, 1, 0x1f, 0x90]);
-    let addr2 = Address::retrieve_from_async_stream(&mut Cursor::new(&buf)).await.unwrap();
+    let addr2 = Address::retrieve_from_async_stream(&mut Cursor::new(&buf))
+        .await
+        .unwrap();
     assert_eq!(addr, addr2);
 
     let addr = Address::from((Ipv6Addr::new(0x45, 0xff89, 0, 0, 0, 0, 0, 1), 8080));
     let mut buf = Vec::new();
     addr.write_to_async_stream(&mut buf).await.unwrap();
-    assert_eq!(buf, vec![0x04, 0, 0x45, 0xff, 0x89, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0x1f, 0x90]);
-    let addr2 = Address::retrieve_from_async_stream(&mut Cursor::new(&buf)).await.unwrap();
+    assert_eq!(
+        buf,
+        vec![
+            0x04, 0, 0x45, 0xff, 0x89, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0x1f, 0x90
+        ]
+    );
+    let addr2 = Address::retrieve_from_async_stream(&mut Cursor::new(&buf))
+        .await
+        .unwrap();
     assert_eq!(addr, addr2);
 
     let addr = Address::from(("sex.com", 8080));
     let mut buf = Vec::new();
     addr.write_to_async_stream(&mut buf).await.unwrap();
-    assert_eq!(buf, vec![0x03, 0x07, b's', b'e', b'x', b'.', b'c', b'o', b'm', 0x1f, 0x90]);
-    let addr2 = Address::retrieve_from_async_stream(&mut Cursor::new(&buf)).await.unwrap();
+    assert_eq!(
+        buf,
+        vec![
+            0x03, 0x07, b's', b'e', b'x', b'.', b'c', b'o', b'm', 0x1f, 0x90
+        ]
+    );
+    let addr2 = Address::retrieve_from_async_stream(&mut Cursor::new(&buf))
+        .await
+        .unwrap();
     assert_eq!(addr, addr2);
 }

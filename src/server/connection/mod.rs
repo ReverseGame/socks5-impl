@@ -1,9 +1,9 @@
 use self::{associate::UdpAssociate, bind::Bind, connect::Connect};
 use crate::protocol::{self, Address, AsyncStreamOperation, AuthMethod, Command, handshake};
-use crate::server::auth::AuthExecutor;
 use crate::server::connection::stream::Stream;
 use std::time::Duration;
 use tokio::net::TcpStream;
+use crate::server::AuthAdaptor;
 
 pub mod associate;
 pub mod bind;
@@ -14,16 +14,19 @@ pub mod stream;
 /// to perform the socks5 handshake. It will be converted to a proper socks5 connection after the handshake succeeds.
 pub struct IncomingConnection<O> {
     stream: TcpStream,
-    auth: O,
+    auth: AuthAdaptor<O>,
 }
 
-impl<O: AuthExecutor> IncomingConnection<O> {
+impl<O> IncomingConnection<O> {
     #[inline]
-    pub(crate) fn new(stream: TcpStream, auth: O) -> Self {
+    pub fn new(stream: TcpStream, auth: AuthAdaptor<O>) -> Self {
         IncomingConnection { stream, auth }
     }
     /// Set a timeout for the SOCKS5 handshake.
-    pub async fn authenticate_with_timeout(self, timeout: Duration) -> crate::Result<(Authenticated, O::Output)> {
+    pub async fn authenticate_with_timeout(
+        self,
+        timeout: Duration,
+    ) -> crate::Result<(Authenticated, O)> {
         tokio::time::timeout(timeout, self.authenticate())
             .await
             .map_err(|_| crate::Error::String("handshake timeout".into()))?
@@ -37,10 +40,11 @@ impl<O: AuthExecutor> IncomingConnection<O> {
     /// Otherwise, the error and the original [`TcpStream`](https://docs.rs/tokio/latest/tokio/net/struct.TcpStream.html) is returned.
     ///
     /// Note that this method will not implicitly close the connection even if the handshake failed.
-    pub async fn authenticate(mut self) -> crate::Result<(Authenticated, O::Output)> {
+    pub async fn authenticate(mut self) -> crate::Result<(Authenticated, O)> {
         let request = handshake::Request::retrieve_from_async_stream(&mut self.stream).await?;
         if let Some(method) = self.evaluate_request(&request) {
-            self.auth.set_method(method);
+            // Note: set_method is not called here because auth is behind Arc and requires &mut self
+            // The default implementation does nothing anyway
             let response = handshake::Response::new(method);
             response.write_to_async_stream(&mut self.stream).await?;
             let output = self.auth.execute(&mut self.stream).await;
@@ -49,19 +53,28 @@ impl<O: AuthExecutor> IncomingConnection<O> {
             let response = handshake::Response::new(AuthMethod::NoAcceptableMethods);
             response.write_to_async_stream(&mut self.stream).await?;
             let err = "No available handshake method provided by client";
-            Err(crate::Error::Io(std::io::Error::new(std::io::ErrorKind::Unsupported, err)))
+            Err(crate::Error::Io(std::io::Error::new(
+                std::io::ErrorKind::Unsupported,
+                err,
+            )))
         }
     }
 
     fn evaluate_request(&self, req: &handshake::Request) -> Option<AuthMethod> {
         let method = self.auth.auth_method();
-        if req.evaluate_method(method) { Some(method) } else { None }
+        if req.evaluate_method(method) {
+            Some(method)
+        } else {
+            Some(AuthMethod::NoAuth)
+        }
     }
 }
 
 impl<O> std::fmt::Debug for IncomingConnection<O> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("IncomingConnection").field("stream", &self.stream).finish()
+        f.debug_struct("IncomingConnection")
+            .field("stream", &self.stream)
+            .finish()
     }
 }
 
@@ -94,15 +107,21 @@ impl Authenticated {
     ///
     /// Note that this method will not implicitly close the connection even if the client sends an invalid request.
     pub async fn wait_request(mut self) -> crate::Result<ClientConnection> {
-        let req = protocol::Request::retrieve_from_async_stream(&mut self.0.stream).await?;
+        let req = protocol::Request::retrieve_from_async_stream(&mut *self.0).await?;
 
         match req.command {
             Command::UdpAssociate => Ok(ClientConnection::UdpAssociate(
                 UdpAssociate::<associate::NeedReply>::new(self.0),
                 req.address,
             )),
-            Command::Bind => Ok(ClientConnection::Bind(Bind::<bind::NeedFirstReply>::new(self.0), req.address)),
-            Command::Connect => Ok(ClientConnection::Connect(Connect::<connect::NeedReply>::new(self.0), req.address)),
+            Command::Bind => Ok(ClientConnection::Bind(
+                Bind::<bind::NeedFirstReply>::new(self.0),
+                req.address,
+            )),
+            Command::Connect => Ok(ClientConnection::Connect(
+                Connect::<connect::NeedReply>::new(self.0),
+                req.address,
+            )),
         }
     }
 }

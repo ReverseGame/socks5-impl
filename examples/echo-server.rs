@@ -9,7 +9,7 @@ use tokio::{
 #[command(author, version, about = "Simple echo server.", long_about = None)]
 pub struct CmdOpt {
     /// Echo server listen address.
-    #[clap(short, long, value_name = "address:port", default_value = "127.0.0.1:8080")]
+    #[clap(short, long, value_name = "address:port", default_value = "0.0.0.0:8080")]
     listen_addr: SocketAddr,
 
     /// timeout for TCP connection

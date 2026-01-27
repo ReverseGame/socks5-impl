@@ -21,11 +21,21 @@ impl std::fmt::Display for UserKey {
         use percent_encoding::{NON_ALPHANUMERIC, percent_encode};
         match (self.username.is_empty(), self.password.is_empty()) {
             (true, true) => write!(f, ""),
-            (true, false) => write!(f, ":{}", percent_encode(self.password.as_bytes(), NON_ALPHANUMERIC)),
-            (false, true) => write!(f, "{}", percent_encode(self.username.as_bytes(), NON_ALPHANUMERIC)),
+            (true, false) => write!(
+                f,
+                ":{}",
+                percent_encode(self.password.as_bytes(), NON_ALPHANUMERIC)
+            ),
+            (false, true) => write!(
+                f,
+                "{}",
+                percent_encode(self.username.as_bytes(), NON_ALPHANUMERIC)
+            ),
             (false, false) => {
-                let username = percent_encode(self.username.as_bytes(), NON_ALPHANUMERIC).to_string();
-                let password = percent_encode(self.password.as_bytes(), NON_ALPHANUMERIC).to_string();
+                let username =
+                    percent_encode(self.username.as_bytes(), NON_ALPHANUMERIC).to_string();
+                let password =
+                    percent_encode(self.password.as_bytes(), NON_ALPHANUMERIC).to_string();
                 write!(f, "{username}:{password}")
             }
         }

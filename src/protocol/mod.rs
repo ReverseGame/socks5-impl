@@ -39,7 +39,10 @@ impl TryFrom<u8> for Version {
         match value {
             4 => Ok(Version::V4),
             5 => Ok(Version::V5),
-            _ => Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "invalid version")),
+            _ => Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "invalid version",
+            )),
         }
     }
 }

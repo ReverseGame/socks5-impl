@@ -12,7 +12,7 @@ use tokio::net::TcpStream;
 /// # Example
 /// ```rust
 /// use socks5_impl::protocol::AuthMethod;
-/// use socks5_impl::server::AuthExecutor;
+/// use socks5_impl::server::auth::AuthExecutor;
 /// use tokio::net::TcpStream;
 ///
 /// pub struct MyAuth;
@@ -25,7 +25,7 @@ use tokio::net::TcpStream;
 ///         AuthMethod::from(0x80)
 ///     }
 ///
-///     async fn execute(&self, stream: &mut TcpStream, _remote_ip: &str) -> Self::Output {
+///     async fn execute(&self, _stream: &mut TcpStream) -> Self::Output {
 ///         // do something
 ///         Ok(1145141919810)
 ///     }

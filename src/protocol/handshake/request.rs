@@ -43,10 +43,17 @@ impl StreamOperation for Request {
         r.read_exact(&mut mlen)?;
         let mlen = mlen[0];
 
-        let mut methods = vec![0; mlen as usize];
-        r.read_exact(&mut methods)?;
-
-        let methods = methods.into_iter().map(AuthMethod::from).collect();
+        // 优化：对于少量方法（<=8），使用栈分配避免堆操作
+        const STACK_BUF_SIZE: usize = 8;
+        let methods = if mlen as usize <= STACK_BUF_SIZE {
+            let mut buf = [0u8; STACK_BUF_SIZE];
+            r.read_exact(&mut buf[..mlen as usize])?;
+            buf[..mlen as usize].iter().map(|&b| AuthMethod::from(b)).collect()
+        } else {
+            let mut buf = vec![0; mlen as usize];
+            r.read_exact(&mut buf)?;
+            buf.into_iter().map(AuthMethod::from).collect()
+        };
 
         Ok(Self { methods })
     }
@@ -79,10 +86,18 @@ impl AsyncStreamOperation for Request {
         }
 
         let mlen = r.read_u8().await?;
-        let mut methods = vec![0; mlen as usize];
-        r.read_exact(&mut methods).await?;
 
-        let methods = methods.into_iter().map(AuthMethod::from).collect();
+        // 优化：对于少量方法（<=8），使用栈分配避免堆操作
+        const STACK_BUF_SIZE: usize = 8;
+        let methods = if mlen as usize <= STACK_BUF_SIZE {
+            let mut buf = [0u8; STACK_BUF_SIZE];
+            r.read_exact(&mut buf[..mlen as usize]).await?;
+            buf[..mlen as usize].iter().map(|&b| AuthMethod::from(b)).collect()
+        } else {
+            let mut buf = vec![0; mlen as usize];
+            r.read_exact(&mut buf).await?;
+            buf.into_iter().map(AuthMethod::from).collect()
+        };
 
         Ok(Self { methods })
     }

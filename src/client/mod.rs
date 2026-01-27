@@ -1,6 +1,9 @@
 use crate::{
     error::{Error, Result},
-    protocol::{Address, AddressType, AsyncStreamOperation, AuthMethod, Command, Reply, StreamOperation, UserKey, Version},
+    protocol::{
+        Address, AddressType, AsyncStreamOperation, AuthMethod, Command, Reply, StreamOperation,
+        UserKey, Version,
+    },
 };
 use std::{
     fmt::Debug,
@@ -204,7 +207,12 @@ where
     stream.read_auth_status().await
 }
 
-async fn init<S, A>(stream: &mut S, command: Command, addr: A, auth: Option<UserKey>) -> Result<Address>
+async fn init<S, A>(
+    stream: &mut S,
+    command: Command,
+    addr: A,
+    auth: Option<UserKey>,
+) -> Result<Address>
 where
     S: Socks5Writer + Socks5Reader + Send,
     A: Into<Address>,
@@ -295,7 +303,10 @@ where
         A: Into<Address>,
     {
         let addr = init(&mut stream, Command::Bind, addr, auth).await?;
-        Ok(Self { stream, proxy_addr: addr })
+        Ok(Self {
+            stream,
+            proxy_addr: addr,
+        })
     }
 
     pub fn proxy_addr(&self) -> &Address {
@@ -323,11 +334,22 @@ where
     /// Creates `SocksDatagram`. Performs [`UDP ASSOCIATE`] under the hood.
     ///
     /// [`UDP ASSOCIATE`]: https://tools.ietf.org/html/rfc1928#page-7
-    pub async fn udp_associate(mut stream: S, socket: UdpSocket, auth: Option<UserKey>) -> Result<Self> {
-        let addr = if socket.local_addr()?.is_ipv4() { "0.0.0.0:0" } else { "[::]:0" };
+    pub async fn udp_associate(
+        mut stream: S,
+        socket: UdpSocket,
+        auth: Option<UserKey>,
+    ) -> Result<Self> {
+        let addr = if socket.local_addr()?.is_ipv4() {
+            "0.0.0.0:0"
+        } else {
+            "[::]:0"
+        };
         let addr = addr.parse::<SocketAddr>()?;
         let proxy_addr = init(&mut stream, Command::UdpAssociate, addr, auth).await?;
-        let addr = proxy_addr.to_socket_addrs()?.next().ok_or("InvalidAddress")?;
+        let addr = proxy_addr
+            .to_socket_addrs()?
+            .next()
+            .ok_or("InvalidAddress")?;
         socket.connect(addr).await?;
         Ok(Self {
             socket,
@@ -391,7 +413,10 @@ where
     }
 
     /// Parses the udp-based server response packet, the format is same as the client request packet.
-    async fn parse_socks5_udp_response(bytes: &mut [u8], buf: &mut Vec<u8>) -> Result<(usize, Address)> {
+    async fn parse_socks5_udp_response(
+        bytes: &mut [u8],
+        buf: &mut Vec<u8>,
+    ) -> Result<(usize, Address)> {
         let len = bytes.len();
         let mut cursor = Cursor::new(bytes);
         cursor.read_reserved().await?;
@@ -405,7 +430,11 @@ where
     }
 
     /// Receives data from the udp socket and returns the number of bytes read and the origin of the data.
-    pub async fn recv_from(&self, timeout: Duration, buf: &mut Vec<u8>) -> Result<(usize, Address)> {
+    pub async fn recv_from(
+        &self,
+        timeout: Duration,
+        buf: &mut Vec<u8>,
+    ) -> Result<(usize, Address)> {
         const UDP_MTU: usize = 1500;
         // let bytes_size = Self::get_buf_size(Address::max_serialized_len(), buf.len());
         let bytes_size = UDP_MTU;
@@ -431,7 +460,8 @@ pub trait UdpClientTrait {
     where
         A: Into<Address> + Send + Unpin;
 
-    async fn recv_from(&mut self, timeout: Duration, buf: &mut Vec<u8>) -> Result<(usize, Address)>;
+    async fn recv_from(&mut self, timeout: Duration, buf: &mut Vec<u8>)
+    -> Result<(usize, Address)>;
 }
 
 #[async_trait::async_trait]
@@ -443,14 +473,25 @@ impl UdpClientTrait for SocksUdpClient {
         SocksDatagram::send_to(self, buf, addr).await
     }
 
-    async fn recv_from(&mut self, timeout: Duration, buf: &mut Vec<u8>) -> Result<(usize, Address), Error> {
+    async fn recv_from(
+        &mut self,
+        timeout: Duration,
+        buf: &mut Vec<u8>,
+    ) -> Result<(usize, Address), Error> {
         SocksDatagram::recv_from(self, timeout, buf).await
     }
 }
 
-pub async fn create_udp_client<A: Into<SocketAddr>>(proxy_addr: A, auth: Option<UserKey>) -> Result<SocksUdpClient> {
+pub async fn create_udp_client<A: Into<SocketAddr>>(
+    proxy_addr: A,
+    auth: Option<UserKey>,
+) -> Result<SocksUdpClient> {
     let proxy_addr = proxy_addr.into();
-    let client_addr = if proxy_addr.is_ipv4() { "0.0.0.0:0" } else { "[::]:0" };
+    let client_addr = if proxy_addr.is_ipv4() {
+        "0.0.0.0:0"
+    } else {
+        "[::]:0"
+    };
     let proxy = TcpStream::connect(proxy_addr).await?;
     let proxy = BufStream::new(proxy);
     let client = UdpSocket::bind(client_addr).await?;
@@ -465,7 +506,9 @@ pub struct UdpClientImpl<C> {
 impl UdpClientImpl<SocksUdpClient> {
     pub async fn transfer_data(&self, data: &[u8], timeout: Duration) -> Result<Vec<u8>> {
         let len = self.client.send_to(data, &self.server_addr).await?;
-        let buf = SocksDatagram::<GuardTcpStream>::build_socks5_udp_datagram(data, &self.server_addr).await?;
+        let buf =
+            SocksDatagram::<GuardTcpStream>::build_socks5_udp_datagram(data, &self.server_addr)
+                .await?;
         assert_eq!(len, buf.len());
 
         let mut buf = Vec::with_capacity(data.len());
@@ -473,7 +516,11 @@ impl UdpClientImpl<SocksUdpClient> {
         Ok(buf)
     }
 
-    pub async fn datagram<A1, A2>(proxy_addr: A1, udp_server_addr: A2, auth: Option<UserKey>) -> Result<Self>
+    pub async fn datagram<A1, A2>(
+        proxy_addr: A1,
+        udp_server_addr: A2,
+        auth: Option<UserKey>,
+    ) -> Result<Self>
     where
         A1: Into<SocketAddr>,
         A2: Into<Address>,
@@ -482,7 +529,10 @@ impl UdpClientImpl<SocksUdpClient> {
 
         let server_addr = udp_server_addr.into();
 
-        Ok(Self { client, server_addr })
+        Ok(Self {
+            client,
+            server_addr,
+        })
     }
 }
 
@@ -510,7 +560,9 @@ mod tests {
     async fn connect(addr: &str, auth: Option<UserKey>) {
         let socket = TcpStream::connect(addr).await.unwrap();
         let mut socket = BufStream::new(socket);
-        client::connect(&mut socket, Address::from(("baidu.com", 80)), auth).await.unwrap();
+        client::connect(&mut socket, Address::from(("baidu.com", 80)), auth)
+            .await
+            .unwrap();
     }
 
     #[ignore]
@@ -542,7 +594,11 @@ mod tests {
             let client = BufStream::new(client);
             let client = SocksListener::bind(client, server_addr, None).await?;
 
-            let server_addr = client.proxy_addr.to_socket_addrs()?.next().ok_or("Invalid address")?;
+            let server_addr = client
+                .proxy_addr
+                .to_socket_addrs()?
+                .next()
+                .ok_or("Invalid address")?;
             let mut server = TcpStream::connect(&server_addr).await?;
 
             let (mut client, _) = client.accept().await?;
@@ -570,7 +626,11 @@ mod tests {
             self.1.send_to(buf, addr).await
         }
 
-        async fn recv_from(&mut self, timeout: Duration, buf: &mut Vec<u8>) -> Result<(usize, Address), Error> {
+        async fn recv_from(
+            &mut self,
+            timeout: Duration,
+            buf: &mut Vec<u8>,
+        ) -> Result<(usize, Address), Error> {
             self.0.recv_from(timeout, buf).await
         }
     }

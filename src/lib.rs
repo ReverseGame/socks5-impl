@@ -1,5 +1,3 @@
-#![doc = include_str!("../README.md")]
-
 #[cfg(feature = "client")]
 pub mod client;
 pub(crate) mod error;

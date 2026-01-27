@@ -10,11 +10,11 @@ use tokio::net::UdpSocket;
 #[command(author, version, about = "Udp client through socks5 proxy", long_about = None)]
 pub struct CmdOpt {
     /// Udp target server address.
-    #[clap(short, long, value_name = "addr:port")]
+    #[clap(short, long, value_name = "addr:port", default_value="127.0.0.1:8080")]
     target_addr: SocketAddr,
 
     /// Data string to send.
-    #[clap(short, long, value_name = "data")]
+    #[clap(short, long, value_name = "data", default_value="123")]
     data: String,
 
     /// Via socks5 proxy server.
@@ -22,15 +22,15 @@ pub struct CmdOpt {
     via_proxy: bool,
 
     /// Socket5 proxy server address.
-    #[clap(short, long, value_name = "addr:port")]
+    #[clap(short, long, value_name = "addr:port", default_value="127.0.0.1:1080")]
     proxy_addr: Option<SocketAddr>,
 
     /// User name for authentication.
-    #[clap(short, long, value_name = "user name")]
+    #[clap(short, long, value_name = "user name", default_value="username")]
     username: Option<String>,
 
     /// Password for authentication.
-    #[clap(short = 'w', long, value_name = "password")]
+    #[clap(short = 'w', long, value_name = "password", default_value="password")]
     password: Option<String>,
 
     /// Timeout in seconds.
