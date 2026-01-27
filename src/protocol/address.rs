@@ -126,41 +126,20 @@ impl StreamOperation for Address {
                 let mut len_buf = [0; 1];
                 stream.read_exact(&mut len_buf)?;
                 let len = len_buf[0] as usize;
+                let mut domain_buf = vec![0; len];
+                stream.read_exact(&mut domain_buf)?;
 
-                // 优化：对于常见的短域名（<=128字节），使用栈分配
-                const STACK_BUF_SIZE: usize = 128;
-                let addr = if len <= STACK_BUF_SIZE {
-                    let mut buf = [0u8; STACK_BUF_SIZE];
-                    stream.read_exact(&mut buf[..len])?;
+                let mut port_buf = [0; 2];
+                stream.read_exact(&mut port_buf)?;
+                let port = u16::from_be_bytes(port_buf);
 
-                    let mut port_buf = [0; 2];
-                    stream.read_exact(&mut port_buf)?;
-                    let port = u16::from_be_bytes(port_buf);
-
-                    let domain = String::from_utf8(buf[..len].to_vec()).map_err(|err| {
-                        std::io::Error::new(
-                            std::io::ErrorKind::InvalidData,
-                            format!("Invalid address encoding: {err}"),
-                        )
-                    })?;
-                    Self::DomainAddress(domain.into_boxed_str(), port)
-                } else {
-                    let mut domain_buf = vec![0; len];
-                    stream.read_exact(&mut domain_buf)?;
-
-                    let mut port_buf = [0; 2];
-                    stream.read_exact(&mut port_buf)?;
-                    let port = u16::from_be_bytes(port_buf);
-
-                    let domain = String::from_utf8(domain_buf).map_err(|err| {
-                        std::io::Error::new(
-                            std::io::ErrorKind::InvalidData,
-                            format!("Invalid address encoding: {err}"),
-                        )
-                    })?;
-                    Self::DomainAddress(domain.into_boxed_str(), port)
-                };
-                Ok(addr)
+                let addr = String::from_utf8(domain_buf).map_err(|err| {
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        format!("Invalid address encoding: {err}"),
+                    )
+                })?;
+                Ok(Self::DomainAddress(addr.into_boxed_str(), port))
             }
             AddressType::IPv6 => {
                 let mut buf = [0; 18];
@@ -225,35 +204,17 @@ impl AsyncStreamOperation for Address {
             }
             AddressType::Domain => {
                 let len = stream.read_u8().await? as usize;
+                let mut domain_buf = vec![0; len];
+                stream.read_exact(&mut domain_buf).await?;
+                let port = stream.read_u16().await?;
 
-                // 优化：对于常见的短域名（<=128字节），使用栈分配
-                const STACK_BUF_SIZE: usize = 128;
-                let addr = if len <= STACK_BUF_SIZE {
-                    let mut buf = [0u8; STACK_BUF_SIZE];
-                    stream.read_exact(&mut buf[..len]).await?;
-                    let port = stream.read_u16().await?;
-
-                    let domain = String::from_utf8(buf[..len].to_vec()).map_err(|err| {
-                        std::io::Error::new(
-                            std::io::ErrorKind::InvalidData,
-                            format!("Invalid address encoding: {err}"),
-                        )
-                    })?;
-                    Self::DomainAddress(domain.into_boxed_str(), port)
-                } else {
-                    let mut domain_buf = vec![0; len];
-                    stream.read_exact(&mut domain_buf).await?;
-                    let port = stream.read_u16().await?;
-
-                    let domain = String::from_utf8(domain_buf).map_err(|err| {
-                        std::io::Error::new(
-                            std::io::ErrorKind::InvalidData,
-                            format!("Invalid address encoding: {err}"),
-                        )
-                    })?;
-                    Self::DomainAddress(domain.into_boxed_str(), port)
-                };
-                Ok(addr)
+                let addr = String::from_utf8(domain_buf).map_err(|err| {
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        format!("Invalid address encoding: {err}"),
+                    )
+                })?;
+                Ok(Self::DomainAddress(addr.into_boxed_str(), port))
             }
             AddressType::IPv6 => {
                 let mut addr_bytes = [0; 16];
