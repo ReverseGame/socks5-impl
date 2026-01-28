@@ -70,6 +70,67 @@ impl HttpResponse {
     pub fn raw_bytes(&self) -> &Bytes {
         &self.raw_bytes
     }
+
+    /// Create a 400 Bad Request response
+    pub fn bad_request(message: impl Into<String>) -> Self {
+        Self::error_response(StatusCode::BAD_REQUEST, message)
+    }
+
+    /// Create a 401 Unauthorized response with WWW-Authenticate header
+    pub fn unauthorized(realm: &str) -> Self {
+        HttpResponseBuilder::new()
+            .status(StatusCode::UNAUTHORIZED)
+            .header("WWW-Authenticate", &format!("Basic realm=\"{}\"", realm))
+            .body(b"401 Unauthorized".to_vec())
+            .build()
+            .finish()
+    }
+
+    /// Create a 403 Forbidden response
+    pub fn forbidden(message: impl Into<String>) -> Self {
+        Self::error_response(StatusCode::FORBIDDEN, message)
+    }
+
+    /// Create a 404 Not Found response
+    pub fn not_found(message: impl Into<String>) -> Self {
+        Self::error_response(StatusCode::NOT_FOUND, message)
+    }
+
+    /// Create a 407 Proxy Authentication Required response
+    pub fn proxy_auth_required(realm: &str) -> Self {
+        HttpResponseBuilder::new()
+            .status(StatusCode::PROXY_AUTHENTICATION_REQUIRED)
+            .header("Proxy-Authenticate", &format!("Basic realm=\"{}\"", realm))
+            .body(b"407 Proxy Authentication Required".to_vec())
+            .build()
+            .finish()
+    }
+
+    /// Create a 500 Internal Server Error response
+    pub fn internal_server_error(message: impl Into<String>) -> Self {
+        Self::error_response(StatusCode::INTERNAL_SERVER_ERROR, message)
+    }
+
+    /// Create a 502 Bad Gateway response
+    pub fn bad_gateway(message: impl Into<String>) -> Self {
+        Self::error_response(StatusCode::BAD_GATEWAY, message)
+    }
+
+    /// Create a 503 Service Unavailable response
+    pub fn service_unavailable(message: impl Into<String>) -> Self {
+        Self::error_response(StatusCode::SERVICE_UNAVAILABLE, message)
+    }
+
+    /// Helper function to create error responses with a message
+    fn error_response(status: StatusCode, message: impl Into<String>) -> Self {
+        let msg = message.into();
+        HttpResponseBuilder::new()
+            .status(status)
+            .header("Content-Type", "text/plain; charset=utf-8")
+            .body(msg.into_bytes())
+            .build()
+            .finish()
+    }
 }
 
 // Builder pattern with type-state

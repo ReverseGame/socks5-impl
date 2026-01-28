@@ -169,16 +169,6 @@ impl AsyncWrite for Stream {
     }
 }
 
-// Implement async Drop by spawning background task for graceful shutdown
-//
-// This implementation uses tokio::spawn to async execute shutdown in the background, avoiding blocking the current task.
-// Compared to the previous block_in_place version, this approach:
-// 1. Does not block async task execution
-// 2. Does not occupy thread pool resources
-// 3. Better performance in high concurrency scenarios
-//
-// Note: Since shutdown executes in the background, if you need to ensure shutdown completes,
-// it's recommended to explicitly call shutdown() method before drop.
 #[cfg(not(test))]
 impl Drop for Stream {
     fn drop(&mut self) {

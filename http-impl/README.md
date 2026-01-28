@@ -56,6 +56,36 @@ let response = HttpResponseBuilder::new()
     .finish();
 ```
 
+### Common Error Responses
+
+```rust
+use http_impl::HttpResponse;
+
+// 400 Bad Request
+let bad_req = HttpResponse::bad_request("Invalid request format");
+
+// 401 Unauthorized
+let unauth = HttpResponse::unauthorized("Protected Area");
+
+// 403 Forbidden
+let forbidden = HttpResponse::forbidden("Access denied");
+
+// 404 Not Found
+let not_found = HttpResponse::not_found("Resource not found");
+
+// 407 Proxy Authentication Required (useful for proxy servers)
+let proxy_auth = HttpResponse::proxy_auth_required("Proxy");
+
+// 500 Internal Server Error
+let server_err = HttpResponse::internal_server_error("Something went wrong");
+
+// 502 Bad Gateway
+let bad_gw = HttpResponse::bad_gateway("Upstream server error");
+
+// 503 Service Unavailable
+let unavail = HttpResponse::service_unavailable("Service temporarily down");
+```
+
 ### Async Usage
 
 ```rust,no_run
