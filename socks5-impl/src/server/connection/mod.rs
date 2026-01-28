@@ -1,6 +1,6 @@
 use self::{associate::UdpAssociate, bind::Bind, connect::Connect};
 use crate::protocol::{self, Address, AsyncStreamOperation, AuthMethod, Command, handshake};
-use crate::server::connection::stream::Stream;
+use stream::Stream;
 use std::time::Duration;
 use tokio::net::TcpStream;
 use crate::server::AuthAdaptor;
@@ -8,7 +8,6 @@ use crate::server::AuthAdaptor;
 pub mod associate;
 pub mod bind;
 pub mod connect;
-pub mod stream;
 
 /// An incoming connection. This may not be a valid socks5 connection. You need to call [`authenticate()`](#method.authenticate)
 /// to perform the socks5 handshake. It will be converted to a proper socks5 connection after the handshake succeeds.

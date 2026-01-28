@@ -1,5 +1,5 @@
 use crate::protocol::{Address, AsyncStreamOperation, Reply, Response};
-use crate::server::connection::stream::Stream;
+use stream::Stream;
 use std::marker::PhantomData;
 use tokio::net::tcp::{ReadHalf, WriteHalf};
 
