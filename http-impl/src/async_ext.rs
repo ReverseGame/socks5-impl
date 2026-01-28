@@ -41,7 +41,7 @@ impl HttpRequest {
             }
         }
 
-        Self::parse(&buffer)
+        Self::parse_bytes(buffer.freeze())
     }
 }
 
@@ -89,6 +89,6 @@ impl HttpResponse {
             }
         }
 
-        Self::parse(&buffer)
+        Self::parse_bytes(buffer.freeze())
     }
 }

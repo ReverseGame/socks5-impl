@@ -1,5 +1,5 @@
 use crate::error::{HttpError, Result};
-use bytes::Bytes;
+use bytes::{Bytes, BytesMut};
 use http::{HeaderMap, HeaderName, HeaderValue, Method, Uri};
 
 /// HTTP request with zero-copy body and preserved raw bytes
@@ -13,13 +13,14 @@ pub struct HttpRequest {
 }
 
 impl HttpRequest {
-    /// Parse HTTP request from raw bytes
-    pub fn parse(data: &[u8]) -> Result<Self> {
+    /// Parse HTTP request from Bytes (zero-copy)
+    /// This is more efficient when data is already in Bytes format
+    pub fn parse_bytes(data: Bytes) -> Result<Self> {
         let mut headers_buf = [httparse::EMPTY_HEADER; 64];
         let mut req = httparse::Request::new(&mut headers_buf);
 
         let status = req
-            .parse(data)
+            .parse(&data)
             .map_err(|e| HttpError::InvalidRequest(e.to_string()))?;
 
         let header_len = match status {
@@ -55,9 +56,9 @@ impl HttpRequest {
             headers.insert(name, value);
         }
 
-        // Body is everything after headers
-        let body = Bytes::copy_from_slice(&data[header_len..]);
-        let raw_bytes = Bytes::copy_from_slice(data);
+        // Zero-copy: slice the original Bytes
+        let body = data.slice(header_len..);
+        let raw_bytes = data;
 
         Ok(Self {
             method,
@@ -66,6 +67,12 @@ impl HttpRequest {
             body,
             raw_bytes,
         })
+    }
+
+    /// Parse HTTP request from raw bytes
+    pub fn parse(data: &[u8]) -> Result<Self> {
+        // Convert to Bytes and use parse_bytes
+        Self::parse_bytes(Bytes::copy_from_slice(data))
     }
 
     /// Get HTTP method
@@ -141,9 +148,9 @@ impl HttpRequestBuilder {
         self
     }
 
-    /// Set body
-    pub fn body(mut self, body: Vec<u8>) -> Self {
-        self.body = Bytes::from(body);
+    /// Set body (accepts Vec<u8>, Bytes, &[u8], String, etc.)
+    pub fn body(mut self, body: impl Into<Bytes>) -> Self {
+        self.body = body.into();
         self
     }
 
@@ -152,8 +159,8 @@ impl HttpRequestBuilder {
         let method = self.method.unwrap_or(Method::GET);
         let uri = self.uri.unwrap_or_else(|| "/".parse().unwrap());
 
-        // Build raw bytes
-        let mut raw = Vec::new();
+        // Build raw bytes using BytesMut for zero-copy conversion
+        let mut raw = BytesMut::new();
         raw.extend_from_slice(method.as_str().as_bytes());
         raw.extend_from_slice(b" ");
         raw.extend_from_slice(uri.path().as_bytes());
@@ -174,7 +181,7 @@ impl HttpRequestBuilder {
             uri,
             headers: self.headers,
             body: self.body,
-            raw_bytes: Bytes::from(raw),
+            raw_bytes: raw.freeze(),
         }
     }
 }
