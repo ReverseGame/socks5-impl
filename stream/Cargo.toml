@@ -1,0 +1,12 @@
+[package]
+name = "stream"
+version = "0.1.0"
+authors = ["ssrlive <ssrlivebox@gmail.com>"]
+description = "A TcpStream wrapper with async graceful shutdown on drop"
+categories = ["network-programming", "asynchronous"]
+keywords = ["tcp", "stream", "async", "tokio", "graceful-shutdown"]
+edition = "2024"
+license = "GPL-3.0-or-later"
+
+[dependencies]
+tokio = { version = "1.48.0", features = ["net", "io-util", "rt"] }
