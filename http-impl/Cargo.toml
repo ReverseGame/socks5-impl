@@ -1,0 +1,24 @@
+[package]
+name = "http-impl"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+
+[dependencies]
+http = "1.0"
+bytes = "1.0"
+thiserror = "1.0"
+httparse = "1.8"
+base64 = "0.21"
+
+[features]
+default = []
+async = ["tokio"]
+
+[dependencies.tokio]
+version = "1.0"
+features = ["io-util"]
+optional = true
+
+[dev-dependencies]
+tokio = { version = "1.0", features = ["full"] }
