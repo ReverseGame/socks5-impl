@@ -36,11 +36,11 @@ mod tests {
         let header = parse_proxy_protocol(&mut stream).await.unwrap();
 
         assert_eq!(header.command, Command::Proxy);
-        let addrs = header.addresses.expect("Should have addresses for PROXY command");
-        assert_eq!(addrs.source.ip(), IpAddr::V4(Ipv4Addr::new(192, 168, 1, 100)));
-        assert_eq!(addrs.source.port(), 12345);
-        assert_eq!(addrs.destination.ip(), IpAddr::V4(Ipv4Addr::new(10, 0, 0, 1)));
-        assert_eq!(addrs.destination.port(), 80);
+        // addresses 不再是 Option，直接访问
+        assert_eq!(header.addresses.source.ip(), IpAddr::V4(Ipv4Addr::new(192, 168, 1, 100)));
+        assert_eq!(header.addresses.source.port(), 12345);
+        assert_eq!(header.addresses.destination.ip(), IpAddr::V4(Ipv4Addr::new(10, 0, 0, 1)));
+        assert_eq!(header.addresses.destination.port(), 80);
     }
 
     #[tokio::test]
@@ -58,15 +58,20 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_parse_proxy_protocol_local_command() {
+    async fn test_parse_proxy_protocol_local_command_rejected() {
         // LOCAL 命令（健康检查）：版本2 + 命令0
+        // 现在应该被拒绝
         let data = b"\x0D\x0A\x0D\x0A\x00\x0D\x0A\x51\x55\x49\x54\x0A\x20\x00\x00\x00";
         let mut stream = create_test_stream(data).await;
 
-        let header = parse_proxy_protocol(&mut stream).await.unwrap();
+        let result = parse_proxy_protocol(&mut stream).await;
 
-        assert_eq!(header.command, Command::Local);
-        assert!(header.addresses.is_none());
+        // 应该返回 InvalidCommand 错误
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            proxy_protocol::result::Error::InvalidCommand(0x00)
+        ));
     }
 
     #[tokio::test]
@@ -94,10 +99,10 @@ mod tests {
         let header = parse_proxy_protocol(&mut stream).await.unwrap();
 
         assert_eq!(header.command, Command::Proxy);
-        let addrs = header.addresses.expect("Should have addresses");
-        assert!(matches!(addrs.source.ip(), IpAddr::V6(_)));
-        assert_eq!(addrs.source.port(), 12345);
-        assert_eq!(addrs.destination.port(), 80);
+        // addresses 不再是 Option
+        assert!(matches!(header.addresses.source.ip(), IpAddr::V6(_)));
+        assert_eq!(header.addresses.source.port(), 12345);
+        assert_eq!(header.addresses.destination.port(), 80);
     }
 
     #[tokio::test]

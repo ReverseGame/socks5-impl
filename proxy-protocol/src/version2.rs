@@ -62,20 +62,24 @@ impl ProxyAddresses {
 /// PROXY Protocol v2 头部
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProxyHeader {
-    /// 命令类型
+    /// 命令类型（始终为 Command::Proxy）
     pub command: Command,
     /// 地址族（AF_INET, AF_INET6 等）
     pub address_family: u8,
     /// 协议类型（PROTO_STREAM, PROTO_DGRAM 等）
     pub protocol: u8,
-    /// 地址信息（仅当 command=PROXY 时有效）
-    pub addresses: Option<ProxyAddresses>,
+    /// 地址信息（真实客户端和目标地址）
+    pub addresses: ProxyAddresses,
 }
 
 /// 从 TCP 流中解析 PROXY Protocol v2 头部
 ///
-/// 此函数要求连接**必须是 PROXY Protocol v2**，如果检测到非 PROXY 协议连接，
-/// 会返回 `Error::InvalidSignature`。
+/// 此函数要求连接**必须是 PROXY Protocol v2 且命令为 PROXY (0x01)**。
+///
+/// **拒绝以下连接**：
+/// - 非 PROXY 协议连接 → `Err(InvalidSignature)`
+/// - LOCAL 命令 (0x00) → `Err(InvalidCommand(0x00))`
+/// - 其他未知命令 → `Err(InvalidCommand(...))`
 ///
 /// # 性能特性
 /// - 系统调用：2 次（peek + read_exact）
@@ -84,7 +88,8 @@ pub struct ProxyHeader {
 ///
 /// # 错误
 /// - `InvalidSignature`: 不是 PROXY Protocol v2 连接
-/// - `InvalidCommand`: 未知的命令类型
+/// - `InvalidCommand(0x00)`: LOCAL 命令（健康检查）不被接受
+/// - `InvalidCommand(cmd)`: 未知的命令类型
 /// - `InvalidAddressFamily`: 不支持的地址族
 /// - `Io`: I/O 错误
 ///
@@ -99,9 +104,9 @@ pub struct ProxyHeader {
 /// // 如果不是 PROXY 协议，会返回 Err(InvalidSignature)
 /// let header = parse_proxy_protocol(&mut stream).await?;
 ///
-/// if let Some(addrs) = header.addresses {
-///     println!("Real client: {}", addrs.source);
-/// }
+/// // addresses 字段始终有效（不再是 Option）
+/// println!("Real client: {}", header.addresses.source);
+/// println!("Destination: {}", header.addresses.destination);
 /// # Ok(())
 /// # }
 /// ```
@@ -130,8 +135,8 @@ pub async fn parse_proxy_protocol(stream: &mut TcpStream) -> Result<ProxyHeader>
         return Err(Error::UnsupportedVersion(version));
     }
 
+    // 只接受 PROXY 命令 (0x01)，拒绝 LOCAL (0x00) 和其他命令
     let command = match command_byte {
-        0x00 => Command::Local,
         0x01 => Command::Proxy,
         _ => return Err(Error::InvalidCommand(command_byte)),
     };
@@ -154,12 +159,13 @@ pub async fn parse_proxy_protocol(stream: &mut TcpStream) -> Result<ProxyHeader>
     let mut frame_buf = vec![0u8; total_len];
     stream.read_exact(&mut frame_buf).await?;
 
-    // 8. 解析地址信息（仅当 PROXY 命令时才需要）
-    let addresses = if command == Command::Proxy && addr_len > 0 {
-        Some(parse_addresses(&frame_buf[HEADER_SIZE..], address_family)?)
-    } else {
-        None
-    };
+    // 8. 验证地址数据长度（PROXY 命令必须有地址数据）
+    if addr_len == 0 {
+        return Err(Error::InvalidAddressLength(0));
+    }
+
+    // 9. 解析地址信息
+    let addresses = parse_addresses(&frame_buf[HEADER_SIZE..], address_family)?;
 
     Ok(ProxyHeader {
         command,
