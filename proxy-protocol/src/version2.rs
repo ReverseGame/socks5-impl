@@ -176,6 +176,50 @@ pub async fn parse_proxy_protocol(stream: &mut TcpStream) -> Result<ProxyProtoco
     }))
 }
 
+/// 严格模式：要求连接必须是 PROXY Protocol v2，否则返回错误
+///
+/// 此函数适用于**强制要求 PROXY 协议**的场景，例如专用的代理端口。
+/// 如果检测到非 PROXY 协议连接，会返回 `Error::InvalidSignature`。
+///
+/// # 与 `parse_proxy_protocol` 的区别
+///
+/// | 函数 | 检测到非 PROXY 协议 | 使用场景 |
+/// |------|-------------------|---------|
+/// | `parse_proxy_protocol` | 返回 `Ok(ProxyProtocol::Unknown)` | 可选 PROXY 协议 |
+/// | `require_proxy_protocol` | 返回 `Err(InvalidSignature)` | 强制 PROXY 协议 |
+///
+/// # 示例
+///
+/// ```no_run
+/// use tokio::net::TcpStream;
+/// use proxy_protocol::version2::require_proxy_protocol;
+///
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// let mut stream = TcpStream::connect("127.0.0.1:8080").await?;
+///
+/// // 如果不是 PROXY 协议，会直接返回错误
+/// let header = require_proxy_protocol(&mut stream).await?;
+///
+/// if let Some(addrs) = header.addresses {
+///     println!("Real client: {}", addrs.source);
+/// }
+/// # Ok(())
+/// # }
+/// ```
+///
+/// # 错误
+///
+/// - `InvalidSignature`: 不是 PROXY Protocol v2 连接
+/// - `InvalidCommand`: 未知的命令类型
+/// - `InvalidAddressFamily`: 不支持的地址族
+/// - `Io`: I/O 错误
+pub async fn require_proxy_protocol(stream: &mut TcpStream) -> Result<ProxyHeader> {
+    match parse_proxy_protocol(stream).await? {
+        ProxyProtocol::V2(header) => Ok(header),
+        ProxyProtocol::Unknown => Err(Error::InvalidSignature),
+    }
+}
+
 /// 从缓冲区解析地址信息（零拷贝）
 fn parse_addresses(buf: &[u8], family: u8) -> Result<ProxyAddresses> {
     match family {

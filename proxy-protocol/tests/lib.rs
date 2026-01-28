@@ -135,4 +135,69 @@ mod tests {
         assert_eq!(addrs.destination_ip(), IpAddr::V4(Ipv4Addr::new(10, 0, 0, 1)));
         assert_eq!(addrs.destination_port(), 80);
     }
+
+    // ========== require_proxy_protocol 严格模式测试 ==========
+
+    #[tokio::test]
+    async fn test_require_proxy_protocol_valid() {
+        use proxy_protocol::version2::require_proxy_protocol;
+
+        // 有效的 PROXY v2 帧
+        let data = b"\x0D\x0A\x0D\x0A\x00\x0D\x0A\x51\x55\x49\x54\x0A\x21\x11\x00\x0C\xC0\xA8\x01\x64\x0A\x00\x00\x01\x30\x39\x00\x50";
+        let mut stream = create_test_stream(data).await;
+
+        let header = require_proxy_protocol(&mut stream).await.unwrap();
+
+        assert_eq!(header.command, Command::Proxy);
+        let addrs = header.addresses.expect("Should have addresses");
+        assert_eq!(addrs.source.ip(), IpAddr::V4(Ipv4Addr::new(192, 168, 1, 100)));
+        assert_eq!(addrs.source.port(), 12345);
+    }
+
+    #[tokio::test]
+    async fn test_require_proxy_protocol_invalid_signature() {
+        use proxy_protocol::version2::require_proxy_protocol;
+
+        // 非 PROXY 协议（HTTP 请求）
+        let data = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
+        let mut stream = create_test_stream(data).await;
+
+        let result = require_proxy_protocol(&mut stream).await;
+
+        // 应该返回 InvalidSignature 错误
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(matches!(
+            err,
+            proxy_protocol::result::Error::InvalidSignature
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_require_proxy_protocol_local_command() {
+        use proxy_protocol::version2::require_proxy_protocol;
+
+        // LOCAL 命令也是有效的 PROXY v2
+        let data = b"\x0D\x0A\x0D\x0A\x00\x0D\x0A\x51\x55\x49\x54\x0A\x20\x00\x00\x00";
+        let mut stream = create_test_stream(data).await;
+
+        let header = require_proxy_protocol(&mut stream).await.unwrap();
+
+        assert_eq!(header.command, Command::Local);
+        assert!(header.addresses.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_require_proxy_protocol_short_frame() {
+        use proxy_protocol::version2::require_proxy_protocol;
+
+        // 不完整的帧
+        let data = b"\x0D\x0A\x0D\x0A\x00\x0D\x0A\x51\x55\x49\x54";
+        let mut stream = create_test_stream(data).await;
+
+        let result = require_proxy_protocol(&mut stream).await;
+
+        // 应该返回错误
+        assert!(result.is_err());
+    }
 }
