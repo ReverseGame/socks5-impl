@@ -1,5 +1,6 @@
 use crate::error::{HttpError, Result};
 use crate::{HttpRequest, HttpResponse};
+use bytes::BytesMut;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 const MAX_HEADER_SIZE: usize = 1024 * 32;
@@ -12,7 +13,7 @@ impl HttpRequest {
     where
         S: AsyncRead + Unpin,
     {
-        let mut buffer = Vec::with_capacity(BUFFER_SIZE);
+        let mut buffer = BytesMut::with_capacity(BUFFER_SIZE);
         let mut temp = [0u8; BUFFER_SIZE];
 
         loop {
@@ -60,7 +61,7 @@ impl HttpResponse {
     where
         S: AsyncRead + Unpin,
     {
-        let mut buffer = Vec::with_capacity(BUFFER_SIZE);
+        let mut buffer = BytesMut::with_capacity(BUFFER_SIZE);
         let mut temp = [0u8; BUFFER_SIZE];
 
         loop {
