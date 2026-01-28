@@ -1,4 +1,3 @@
-use crate::protocol::AsyncStreamOperation;
 use crate::protocol::{Address, StreamOperation};
 use tokio::io::{AsyncRead, AsyncReadExt};
 
@@ -27,30 +26,10 @@ impl UdpHeader {
     }
 }
 
-impl StreamOperation for UdpHeader {
-    fn retrieve_from_stream<R: std::io::Read>(stream: &mut R) -> std::io::Result<Self> {
-        let mut buf = [0; 3];
-        stream.read_exact(&mut buf)?;
 
-        let frag = buf[2];
-
-        let address = Address::retrieve_from_stream(stream)?;
-        Ok(Self { frag, address })
-    }
-
-    fn write_to_buf<B: bytes::BufMut>(&self, buf: &mut B) {
-        buf.put_bytes(0x00, 2);
-        buf.put_u8(self.frag);
-        self.address.write_to_buf(buf);
-    }
-
-    fn len(&self) -> usize {
-        3 + self.address.len()
-    }
-}
 
 #[async_trait::async_trait]
-impl AsyncStreamOperation for UdpHeader {
+impl StreamOperation for UdpHeader {
     async fn retrieve_from_async_stream<R>(r: &mut R) -> std::io::Result<Self>
     where
         R: AsyncRead + Unpin + Send + ?Sized,
@@ -62,5 +41,15 @@ impl AsyncStreamOperation for UdpHeader {
 
         let address = Address::retrieve_from_async_stream(r).await?;
         Ok(Self { frag, address })
+    }
+
+    fn write_to_buf<B: bytes::BufMut>(&self, buf: &mut B) {
+        buf.put_bytes(0x00, 2);
+        buf.put_u8(self.frag);
+        self.address.write_to_buf(buf);
+    }
+
+    fn len(&self) -> usize {
+        3 + self.address.len()
     }
 }

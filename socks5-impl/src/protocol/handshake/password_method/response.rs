@@ -1,4 +1,3 @@
-use crate::protocol::AsyncStreamOperation;
 use crate::protocol::StreamOperation;
 use tokio::io::{AsyncRead, AsyncReadExt};
 
@@ -58,35 +57,10 @@ impl Response {
     }
 }
 
-impl StreamOperation for Response {
-    fn retrieve_from_stream<R: std::io::Read>(r: &mut R) -> std::io::Result<Self> {
-        let mut ver = [0; 1];
-        r.read_exact(&mut ver)?;
-        let ver = ver[0];
 
-        if ver != super::SUBNEGOTIATION_VERSION {
-            let err = format!("Unsupported sub-negotiation version {ver:#x}");
-            return Err(std::io::Error::new(std::io::ErrorKind::Unsupported, err));
-        }
-
-        let mut status = [0; 1];
-        r.read_exact(&mut status)?;
-        let status = Status::try_from(status[0])?;
-        Ok(Self { status })
-    }
-
-    fn write_to_buf<B: bytes::BufMut>(&self, buf: &mut B) {
-        buf.put_u8(super::SUBNEGOTIATION_VERSION);
-        buf.put_u8(self.status.into());
-    }
-
-    fn len(&self) -> usize {
-        2
-    }
-}
 
 #[async_trait::async_trait]
-impl AsyncStreamOperation for Response {
+impl StreamOperation for Response {
     async fn retrieve_from_async_stream<R>(r: &mut R) -> std::io::Result<Self>
     where
         R: AsyncRead + Unpin + Send + ?Sized,
@@ -100,5 +74,14 @@ impl AsyncStreamOperation for Response {
 
         let status = Status::try_from(r.read_u8().await?)?;
         Ok(Self { status })
+    }
+
+    fn write_to_buf<B: bytes::BufMut>(&self, buf: &mut B) {
+        buf.put_u8(super::SUBNEGOTIATION_VERSION);
+        buf.put_u8(self.status.into());
+    }
+
+    fn len(&self) -> usize {
+        2
     }
 }

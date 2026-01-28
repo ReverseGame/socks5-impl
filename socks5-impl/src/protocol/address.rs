@@ -1,9 +1,6 @@
 use crate::protocol::StreamOperation;
 use bytes::BufMut;
-use std::{
-    io::Cursor,
-    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, ToSocketAddrs},
-};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, ToSocketAddrs};
 use tokio::io::{AsyncRead, AsyncReadExt};
 
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, Default)]
@@ -237,23 +234,7 @@ impl From<Address> for Vec<u8> {
     }
 }
 
-impl TryFrom<Vec<u8>> for Address {
-    type Error = std::io::Error;
-
-    fn try_from(data: Vec<u8>) -> std::result::Result<Self, Self::Error> {
-        let mut rdr = Cursor::new(data);
-        Self::retrieve_from_stream(&mut rdr)
-    }
-}
-
-impl TryFrom<&[u8]> for Address {
-    type Error = std::io::Error;
-
-    fn try_from(data: &[u8]) -> std::result::Result<Self, Self::Error> {
-        let mut rdr = Cursor::new(data);
-        Self::retrieve_from_stream(&mut rdr)
-    }
-}
+// TryFrom implementations removed - use retrieve_from_async_stream instead
 
 impl From<SocketAddr> for Address {
     fn from(addr: SocketAddr) -> Self {
@@ -321,42 +302,8 @@ impl TryFrom<&str> for Address {
     }
 }
 
-#[test]
-fn test_address() {
-    let addr = Address::from((Ipv4Addr::new(127, 0, 0, 1), 8080));
-    let mut buf = Vec::new();
-    addr.write_to_buf(&mut buf);
-    assert_eq!(buf, vec![0x01, 127, 0, 0, 1, 0x1f, 0x90]);
-    let addr2 = Address::retrieve_from_stream(&mut Cursor::new(&buf)).unwrap();
-    assert_eq!(addr, addr2);
-
-    let addr = Address::from((Ipv6Addr::new(0x45, 0xff89, 0, 0, 0, 0, 0, 1), 8080));
-    let mut buf = Vec::new();
-    addr.write_to_buf(&mut buf);
-    assert_eq!(
-        buf,
-        vec![
-            0x04, 0, 0x45, 0xff, 0x89, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0x1f, 0x90
-        ]
-    );
-    let addr2 = Address::retrieve_from_stream(&mut Cursor::new(&buf)).unwrap();
-    assert_eq!(addr, addr2);
-
-    let addr = Address::from(("sex.com", 8080));
-    let mut buf = Vec::new();
-    addr.write_to_buf(&mut buf);
-    assert_eq!(
-        buf,
-        vec![
-            0x03, 0x07, b's', b'e', b'x', b'.', b'c', b'o', b'm', 0x1f, 0x90
-        ]
-    );
-    let addr2 = Address::retrieve_from_stream(&mut Cursor::new(&buf)).unwrap();
-    assert_eq!(addr, addr2);
-}
-
 #[tokio::test]
-async fn test_address_async() {
+async fn test_address() {
     let addr = Address::from((Ipv4Addr::new(127, 0, 0, 1), 8080));
     let mut buf = Vec::new();
     addr.write_to_async_stream(&mut buf).await.unwrap();
