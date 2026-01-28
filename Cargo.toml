@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "stream",
+    "socks5-impl",
+    "http-impl"
+]
