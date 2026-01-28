@@ -41,6 +41,22 @@ pub struct HttpResponse {
 }
 
 impl HttpResponse {
+    /// Parse only the status code from HTTP response without parsing headers or body
+    /// This is faster than full parse when you only need the status code
+    pub fn parse_status(data: &[u8]) -> Result<StatusCode> {
+        let mut headers = [httparse::EMPTY_HEADER; 64];
+        let mut resp = httparse::Response::new(&mut headers);
+
+        resp.parse(data)
+            .map_err(|e| HttpError::InvalidResponse(e.to_string()))?;
+
+        let status_code = resp.code
+            .ok_or_else(|| HttpError::InvalidResponse("Missing status code".to_string()))?;
+
+        StatusCode::from_u16(status_code)
+            .map_err(|e| HttpError::InvalidResponse(e.to_string()))
+    }
+
     pub fn parse(data: &[u8]) -> Result<Self> {
         let mut headers = [httparse::EMPTY_HEADER; 64];
         let mut resp = httparse::Response::new(&mut headers);
