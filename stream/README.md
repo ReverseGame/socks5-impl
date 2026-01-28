@@ -11,12 +11,14 @@ A `TcpStream` wrapper with async graceful shutdown on drop.
 
 ## Usage
 
-```rust
+```rust,no_run
 use stream::Stream;
 use tokio::net::TcpStream;
 
+# #[tokio::main]
+# async fn main() -> std::io::Result<()> {
 let tcp_stream = TcpStream::connect("127.0.0.1:8080").await?;
-let stream = Stream::new(tcp_stream);
+let mut stream = Stream::new(tcp_stream);
 
 // Use as TcpStream via Deref
 stream.set_nodelay(true)?;
@@ -25,6 +27,8 @@ stream.set_nodelay(true)?;
 stream.shutdown().await?;
 
 // Or let it drop and shutdown happens in background
+# Ok(())
+# }
 ```
 
 ## Design
