@@ -25,7 +25,7 @@ let request = HttpRequestBuilder::new()
     .finish();
 
 // Parse from bytes
-let request = HttpRequest::parse(b"GET / HTTP/1.1\r\n\r\n")?;
+let request = HttpRequest::parse(b"GET / HTTP/1.1\r\n\r\n").unwrap();
 ```
 
 ## License
