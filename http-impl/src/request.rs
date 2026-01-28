@@ -19,40 +19,26 @@ impl HttpRequest {
         let mut headers_buf = [httparse::EMPTY_HEADER; 64];
         let mut req = httparse::Request::new(&mut headers_buf);
 
-        let status = req
-            .parse(&data)
-            .map_err(|e| HttpError::InvalidRequest(e.to_string()))?;
+        let status = req.parse(&data).map_err(|e| HttpError::InvalidRequest(e.to_string()))?;
 
         let header_len = match status {
             httparse::Status::Complete(len) => len,
-            httparse::Status::Partial => {
-                return Err(HttpError::InvalidRequest("Incomplete request".to_string()))
-            }
+            httparse::Status::Partial => return Err(HttpError::InvalidRequest("Incomplete request".to_string())),
         };
 
         // Parse method
-        let method = req
-            .method
-            .ok_or_else(|| HttpError::InvalidRequest("Missing method".to_string()))?;
-        let method = method
-            .parse::<Method>()
-            .map_err(|e| HttpError::InvalidRequest(e.to_string()))?;
+        let method = req.method.ok_or_else(|| HttpError::InvalidRequest("Missing method".to_string()))?;
+        let method = method.parse::<Method>().map_err(|e| HttpError::InvalidRequest(e.to_string()))?;
 
         // Parse URI
-        let path = req
-            .path
-            .ok_or_else(|| HttpError::InvalidRequest("Missing path".to_string()))?;
-        let uri = path
-            .parse::<Uri>()
-            .map_err(|e| HttpError::InvalidUri(e.to_string()))?;
+        let path = req.path.ok_or_else(|| HttpError::InvalidRequest("Missing path".to_string()))?;
+        let uri = path.parse::<Uri>().map_err(|e| HttpError::InvalidUri(e.to_string()))?;
 
         // Parse headers
         let mut headers = HeaderMap::new();
         for header in req.headers {
-            let name = HeaderName::from_bytes(header.name.as_bytes())
-                .map_err(|e| HttpError::InvalidHeader(e.to_string()))?;
-            let value = HeaderValue::from_bytes(header.value)
-                .map_err(|e| HttpError::InvalidHeader(e.to_string()))?;
+            let name = HeaderName::from_bytes(header.name.as_bytes()).map_err(|e| HttpError::InvalidHeader(e.to_string()))?;
+            let value = HeaderValue::from_bytes(header.value).map_err(|e| HttpError::InvalidHeader(e.to_string()))?;
             headers.insert(name, value);
         }
 
@@ -139,10 +125,7 @@ impl HttpRequestBuilder {
 
     /// Add header
     pub fn header(mut self, name: &str, value: &str) -> Self {
-        if let (Ok(name), Ok(value)) = (
-            HeaderName::from_bytes(name.as_bytes()),
-            HeaderValue::from_str(value),
-        ) {
+        if let (Ok(name), Ok(value)) = (HeaderName::from_bytes(name.as_bytes()), HeaderValue::from_str(value)) {
             self.headers.insert(name, value);
         }
         self

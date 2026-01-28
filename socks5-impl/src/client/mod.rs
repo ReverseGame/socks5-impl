@@ -1,6 +1,6 @@
 use crate::{
     error::{Error, Result},
-    protocol::{Address, AddressType, AsyncStreamOperation, AuthMethod, Command, Reply, StreamOperation, UserKey, Version},
+    protocol::{Address, AddressType, AuthMethod, Command, Reply, StreamOperation, UserKey, Version},
 };
 use std::{
     fmt::Debug,

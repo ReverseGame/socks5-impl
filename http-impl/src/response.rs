@@ -15,7 +15,8 @@ pub mod constants {
     pub const FORBIDDEN: &[u8] = b"HTTP/1.1 403 Forbidden\r\n\r\n";
 
     /// HTTP/1.1 407 Proxy Authentication Required with Basic realm
-    pub const AUTHENTICATION_REQUIRED: &[u8] = b"HTTP/1.1 407 Proxy Authentication Required\r\nProxy-Authenticate: Basic realm=\"Proxy-Login\"\r\n\r\n";
+    pub const AUTHENTICATION_REQUIRED: &[u8] =
+        b"HTTP/1.1 407 Proxy Authentication Required\r\nProxy-Authenticate: Basic realm=\"Proxy-Login\"\r\n\r\n";
 
     /// HTTP/1.1 400 Bad Request
     pub const BAD_REQUEST: &[u8] = b"HTTP/1.1 400 Bad Request\r\n\r\n";
@@ -47,10 +48,10 @@ impl HttpResponse {
         let mut headers = [httparse::EMPTY_HEADER; 64];
         let mut resp = httparse::Response::new(&mut headers);
 
-        resp.parse(data)
-            .map_err(|e| HttpError::InvalidResponse(e.to_string()))?;
+        resp.parse(data).map_err(|e| HttpError::InvalidResponse(e.to_string()))?;
 
-        let status_code = resp.code
+        let status_code = resp
+            .code
             .ok_or_else(|| HttpError::InvalidResponse("Missing status code".to_string()))?;
         Ok(status_code)
     }
@@ -61,8 +62,7 @@ impl HttpResponse {
         let mut headers = [httparse::EMPTY_HEADER; 64];
         let mut resp = httparse::Response::new(&mut headers);
 
-        let status = resp.parse(&data)
-            .map_err(|e| HttpError::InvalidResponse(e.to_string()))?;
+        let status = resp.parse(&data).map_err(|e| HttpError::InvalidResponse(e.to_string()))?;
 
         let header_len = match status {
             httparse::Status::Complete(len) => len,
@@ -71,18 +71,16 @@ impl HttpResponse {
             }
         };
 
-        let status_code = resp.code
+        let status_code = resp
+            .code
             .ok_or_else(|| HttpError::InvalidResponse("Missing status code".to_string()))?;
 
-        let status = StatusCode::from_u16(status_code)
-            .map_err(|e| HttpError::InvalidResponse(e.to_string()))?;
+        let status = StatusCode::from_u16(status_code).map_err(|e| HttpError::InvalidResponse(e.to_string()))?;
 
         let mut header_map = HeaderMap::new();
         for header in resp.headers {
-            let name = HeaderName::from_bytes(header.name.as_bytes())
-                .map_err(|e| HttpError::InvalidHeader(e.to_string()))?;
-            let value = HeaderValue::from_bytes(header.value)
-                .map_err(|e| HttpError::InvalidHeader(e.to_string()))?;
+            let name = HeaderName::from_bytes(header.name.as_bytes()).map_err(|e| HttpError::InvalidHeader(e.to_string()))?;
+            let value = HeaderValue::from_bytes(header.value).map_err(|e| HttpError::InvalidHeader(e.to_string()))?;
             header_map.insert(name, value);
         }
 
@@ -146,10 +144,7 @@ impl HttpResponseBuilder {
     }
 
     pub fn header(mut self, name: &str, value: &str) -> Self {
-        if let (Ok(name), Ok(value)) = (
-            HeaderName::from_bytes(name.as_bytes()),
-            HeaderValue::from_str(value),
-        ) {
+        if let (Ok(name), Ok(value)) = (HeaderName::from_bytes(name.as_bytes()), HeaderValue::from_str(value)) {
             self.headers.insert(name, value);
         }
         self

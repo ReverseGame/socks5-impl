@@ -1,4 +1,4 @@
-use crate::protocol::{AsyncStreamOperation, AuthMethod, UserKey, handshake::password_method};
+use crate::protocol::{AuthMethod, StreamOperation, UserKey, handshake::password_method};
 use std::sync::Arc;
 use tokio::net::TcpStream;
 

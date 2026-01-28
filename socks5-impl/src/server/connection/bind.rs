@@ -1,4 +1,4 @@
-use crate::protocol::{Address, AsyncStreamOperation, Reply, Response};
+use crate::protocol::{Address, Reply, Response, StreamOperation};
 use std::marker::PhantomData;
 use stream::Stream;
 use tokio::net::tcp::{ReadHalf, WriteHalf};

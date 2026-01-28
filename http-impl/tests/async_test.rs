@@ -1,7 +1,7 @@
 #![cfg(feature = "async")]
 
-use http_impl::{HttpRequest, HttpResponseBuilder};
 use http::{Method, StatusCode};
+use http_impl::{HttpRequest, HttpResponseBuilder};
 
 #[tokio::test]
 async fn test_async_request_from_stream() {

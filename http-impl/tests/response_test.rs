@@ -1,5 +1,5 @@
-use http_impl::{HttpResponse, HttpResponseBuilder};
 use http::StatusCode;
+use http_impl::{HttpResponse, HttpResponseBuilder};
 
 #[test]
 fn test_parse_simple_response() {

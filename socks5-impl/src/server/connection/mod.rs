@@ -1,5 +1,5 @@
 use self::{associate::UdpAssociate, bind::Bind, connect::Connect};
-use crate::protocol::{self, Address, AsyncStreamOperation, AuthMethod, Command, handshake};
+use crate::protocol::{self, Address, AuthMethod, Command, StreamOperation, handshake};
 use crate::server::AuthAdaptor;
 use std::time::Duration;
 use stream::Stream;

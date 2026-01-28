@@ -129,22 +129,14 @@ impl DerefMut for Stream {
 
 // Implement AsyncRead trait by delegating to inner TcpStream
 impl AsyncRead for Stream {
-    fn poll_read(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        buf: &mut ReadBuf<'_>,
-    ) -> Poll<std::io::Result<()>> {
+    fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<std::io::Result<()>> {
         Pin::new(self.get_stream_mut()).poll_read(cx, buf)
     }
 }
 
 // Implement AsyncWrite trait by delegating to inner TcpStream
 impl AsyncWrite for Stream {
-    fn poll_write(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        buf: &[u8],
-    ) -> Poll<std::io::Result<usize>> {
+    fn poll_write(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<std::io::Result<usize>> {
         Pin::new(self.get_stream_mut()).poll_write(cx, buf)
     }
 
@@ -156,11 +148,7 @@ impl AsyncWrite for Stream {
         Pin::new(self.get_stream_mut()).poll_shutdown(cx)
     }
 
-    fn poll_write_vectored(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        bufs: &[std::io::IoSlice<'_>],
-    ) -> Poll<std::io::Result<usize>> {
+    fn poll_write_vectored(mut self: Pin<&mut Self>, cx: &mut Context<'_>, bufs: &[std::io::IoSlice<'_>]) -> Poll<std::io::Result<usize>> {
         Pin::new(self.get_stream_mut()).poll_write_vectored(cx, bufs)
     }
 

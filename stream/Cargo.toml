@@ -9,4 +9,4 @@ edition = "2024"
 license = "GPL-3.0-or-later"
 
 [dependencies]
-tokio = { version = "1.48.0", features = ["net", "io-util", "rt"] }
+tokio = { version = "1", features = ["full"] }

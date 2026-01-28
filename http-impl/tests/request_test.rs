@@ -1,5 +1,5 @@
-use http_impl::{HttpRequest, HttpRequestBuilder};
 use http::{Method, Uri};
+use http_impl::{HttpRequest, HttpRequestBuilder};
 
 #[test]
 fn test_parse_simple_get_request() {

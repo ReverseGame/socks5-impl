@@ -1,5 +1,5 @@
-use http_impl::HttpResponseBuilder;
 use http::StatusCode;
+use http_impl::HttpResponseBuilder;
 
 fn main() {
     let response = HttpResponseBuilder::new()

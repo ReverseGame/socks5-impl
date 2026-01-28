@@ -1,6 +1,6 @@
 use crate::error::{HttpError, Result};
 use crate::request::HttpRequest;
-use base64::{Engine as _, engine::general_purpose};
+use base64::{engine::general_purpose, Engine as _};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BasicAuth {
@@ -16,23 +16,19 @@ impl HttpRequest {
         };
 
         if !auth_header.starts_with("Basic ") {
-            return Err(HttpError::AuthError(
-                "Invalid authorization scheme".to_string()
-            ));
+            return Err(HttpError::AuthError("Invalid authorization scheme".to_string()));
         }
 
         let encoded = &auth_header[6..]; // Skip "Basic "
-        let decoded = general_purpose::STANDARD.decode(encoded)
+        let decoded = general_purpose::STANDARD
+            .decode(encoded)
             .map_err(|e| HttpError::AuthError(format!("Invalid base64: {}", e)))?;
 
-        let decoded_str = String::from_utf8(decoded)
-            .map_err(|e| HttpError::AuthError(format!("Invalid UTF-8: {}", e)))?;
+        let decoded_str = String::from_utf8(decoded).map_err(|e| HttpError::AuthError(format!("Invalid UTF-8: {}", e)))?;
 
         let parts: Vec<&str> = decoded_str.splitn(2, ':').collect();
         if parts.len() != 2 {
-            return Err(HttpError::AuthError(
-                "Invalid credentials format".to_string()
-            ));
+            return Err(HttpError::AuthError("Invalid credentials format".to_string()));
         }
 
         Ok(Some(BasicAuth {
