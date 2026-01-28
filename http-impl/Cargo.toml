@@ -10,6 +10,7 @@ bytes = "1.0"
 thiserror = "1.0"
 httparse = "1.8"
 base64 = "0.21"
+memchr = "2.7"
 
 [features]
 default = []

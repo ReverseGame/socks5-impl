@@ -58,12 +58,11 @@ let response = HttpResponseBuilder::new()
 
 ```rust
 use http_impl::HttpResponse;
-use http::StatusCode;
 
 // Fast status code parsing without parsing full response
 let status = HttpResponse::parse_status(b"HTTP/1.1 404 Not Found\r\n\r\n").unwrap();
 
-if status.is_client_error() {
+if status >= 400 && status < 500 {
     println!("Client error: {}", status);
 }
 ```
