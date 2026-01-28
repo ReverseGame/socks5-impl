@@ -1,7 +1,6 @@
 use crate::error::{HttpError, Result};
 use bytes::Bytes;
 use http::{HeaderMap, HeaderName, HeaderValue, Method, Uri};
-use std::marker::PhantomData;
 
 /// HTTP request with zero-copy body and preserved raw bytes
 #[derive(Debug, Clone)]
@@ -100,20 +99,15 @@ impl HttpRequest {
     }
 }
 
-// Type-state pattern for builder
-pub struct Building;
-pub struct Complete;
-
-/// Builder for HttpRequest with type-state pattern
-pub struct HttpRequestBuilder<State = Building> {
+/// Builder for HttpRequest
+pub struct HttpRequestBuilder {
     method: Option<Method>,
     uri: Option<Uri>,
     headers: HeaderMap,
     body: Bytes,
-    _state: PhantomData<State>,
 }
 
-impl HttpRequestBuilder<Building> {
+impl HttpRequestBuilder {
     /// Create new builder
     pub fn new() -> Self {
         Self {
@@ -121,7 +115,6 @@ impl HttpRequestBuilder<Building> {
             uri: None,
             headers: HeaderMap::new(),
             body: Bytes::new(),
-            _state: PhantomData,
         }
     }
 
@@ -154,21 +147,8 @@ impl HttpRequestBuilder<Building> {
         self
     }
 
-    /// Build request (transition to Complete state)
-    pub fn build(self) -> HttpRequestBuilder<Complete> {
-        HttpRequestBuilder {
-            method: self.method,
-            uri: self.uri,
-            headers: self.headers,
-            body: self.body,
-            _state: PhantomData,
-        }
-    }
-}
-
-impl HttpRequestBuilder<Complete> {
-    /// Finish building and create HttpRequest
-    pub fn finish(self) -> HttpRequest {
+    /// Build and create HttpRequest
+    pub fn build(self) -> HttpRequest {
         let method = self.method.unwrap_or(Method::GET);
         let uri = self.uri.unwrap_or_else(|| "/".parse().unwrap());
 
@@ -199,7 +179,7 @@ impl HttpRequestBuilder<Complete> {
     }
 }
 
-impl Default for HttpRequestBuilder<Building> {
+impl Default for HttpRequestBuilder {
     fn default() -> Self {
         Self::new()
     }

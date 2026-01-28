@@ -7,8 +7,7 @@ fn main() {
         .header("Content-Type", "application/json")
         .header("Content-Length", "13")
         .body(br#"{"ok":true}"#.to_vec())
-        .build()
-        .finish();
+        .build();
 
     println!("Response:");
     println!("{}", String::from_utf8_lossy(response.raw_bytes()));

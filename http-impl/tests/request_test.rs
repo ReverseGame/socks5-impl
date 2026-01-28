@@ -18,8 +18,7 @@ fn test_builder_pattern() {
         .uri("/api".parse::<Uri>().unwrap())
         .header("Content-Type", "application/json")
         .body(b"{}".to_vec())
-        .build()
-        .finish();
+        .build();
 
     assert_eq!(request.method(), &Method::POST);
     assert_eq!(request.body().as_ref(), b"{}");

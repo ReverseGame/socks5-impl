@@ -17,8 +17,7 @@ fn test_builder_pattern() {
         .status(StatusCode::CREATED)
         .header("Content-Type", "application/json")
         .body(b"{}".to_vec())
-        .build()
-        .finish();
+        .build();
 
     assert_eq!(response.status(), StatusCode::CREATED);
     assert_eq!(response.body().as_ref(), b"{}");

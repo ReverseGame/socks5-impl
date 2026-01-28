@@ -1,7 +1,6 @@
 use crate::error::{HttpError, Result};
 use bytes::Bytes;
 use http::{HeaderMap, HeaderName, HeaderValue, StatusCode};
-use std::marker::PhantomData;
 
 /// Pre-built HTTP response constants for high-performance scenarios
 /// These can be sent directly without constructing response objects
@@ -107,7 +106,6 @@ impl HttpResponse {
         HttpResponseBuilder::new()
             .status(StatusCode::OK)
             .build()
-            .finish()
     }
 
     /// Create a 200 OK response with body
@@ -117,7 +115,6 @@ impl HttpResponse {
             .header("Content-Type", content_type)
             .body(body.into())
             .build()
-            .finish()
     }
 
     /// Create a 201 Created response
@@ -125,7 +122,6 @@ impl HttpResponse {
         HttpResponseBuilder::new()
             .status(StatusCode::CREATED)
             .build()
-            .finish()
     }
 
     /// Create a 204 No Content response
@@ -133,7 +129,6 @@ impl HttpResponse {
         HttpResponseBuilder::new()
             .status(StatusCode::NO_CONTENT)
             .build()
-            .finish()
     }
 
     /// Create a 400 Bad Request response
@@ -148,7 +143,6 @@ impl HttpResponse {
             .header("WWW-Authenticate", &format!("Basic realm=\"{}\"", realm))
             .body(b"401 Unauthorized".to_vec())
             .build()
-            .finish()
     }
 
     /// Create a 403 Forbidden response
@@ -168,7 +162,6 @@ impl HttpResponse {
             .header("Proxy-Authenticate", &format!("Basic realm=\"{}\"", realm))
             .body(b"407 Proxy Authentication Required".to_vec())
             .build()
-            .finish()
     }
 
     /// Create a 500 Internal Server Error response
@@ -194,28 +187,22 @@ impl HttpResponse {
             .header("Content-Type", "text/plain; charset=utf-8")
             .body(msg.into_bytes())
             .build()
-            .finish()
     }
 }
 
-// Builder pattern with type-state
-pub struct HttpResponseBuilder<S> {
+/// Builder for HttpResponse
+pub struct HttpResponseBuilder {
     status: Option<StatusCode>,
     headers: HeaderMap,
     body: Bytes,
-    _state: PhantomData<S>,
 }
 
-pub struct Building;
-pub struct Complete;
-
-impl HttpResponseBuilder<Building> {
+impl HttpResponseBuilder {
     pub fn new() -> Self {
         Self {
             status: None,
             headers: HeaderMap::new(),
             body: Bytes::new(),
-            _state: PhantomData,
         }
     }
 
@@ -239,18 +226,7 @@ impl HttpResponseBuilder<Building> {
         self
     }
 
-    pub fn build(self) -> HttpResponseBuilder<Complete> {
-        HttpResponseBuilder {
-            status: self.status,
-            headers: self.headers,
-            body: self.body,
-            _state: PhantomData,
-        }
-    }
-}
-
-impl HttpResponseBuilder<Complete> {
-    pub fn finish(self) -> HttpResponse {
+    pub fn build(self) -> HttpResponse {
         let status = self.status.unwrap_or(StatusCode::OK);
 
         // Build raw bytes for forwarding
@@ -279,7 +255,7 @@ impl HttpResponseBuilder<Complete> {
     }
 }
 
-impl Default for HttpResponseBuilder<Building> {
+impl Default for HttpResponseBuilder {
     fn default() -> Self {
         Self::new()
     }

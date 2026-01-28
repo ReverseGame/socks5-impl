@@ -20,8 +20,7 @@ async fn test_async_response_write_to_stream() {
         .status(StatusCode::OK)
         .header("Content-Type", "text/plain")
         .body(b"Hello".to_vec())
-        .build()
-        .finish();
+        .build();
 
     let mut buffer = Vec::new();
     response.write_to_stream(&mut buffer).await.unwrap();

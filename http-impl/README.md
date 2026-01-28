@@ -21,8 +21,7 @@ let request = HttpRequestBuilder::new()
     .method(Method::GET)
     .uri("/path".parse::<Uri>().unwrap())
     .header("Host", "example.com")
-    .build()
-    .finish();
+    .build();
 
 // Parse from bytes
 let request = HttpRequest::parse(b"GET / HTTP/1.1\r\n\r\n").unwrap();
@@ -52,8 +51,7 @@ let response = HttpResponseBuilder::new()
     .status(StatusCode::OK)
     .header("Content-Type", "application/json")
     .body(br#"{"ok":true}"#.to_vec())
-    .build()
-    .finish();
+    .build();
 ```
 
 ### Success Responses
