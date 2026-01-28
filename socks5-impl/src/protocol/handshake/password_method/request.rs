@@ -60,17 +60,17 @@ impl StreamOperation for Request {
     fn write_to_buf<B: bytes::BufMut>(&self, buf: &mut B) {
         buf.put_u8(super::SUBNEGOTIATION_VERSION);
 
-        let username = self.user_key.username_arr();
+        let username = self.user_key.username();
         buf.put_u8(username.len() as u8);
-        buf.put_slice(&username);
+        buf.put_slice(username);
 
-        let password = self.user_key.password_arr();
+        let password = self.user_key.password();
         buf.put_u8(password.len() as u8);
-        buf.put_slice(&password);
+        buf.put_slice(password);
     }
 
     fn len(&self) -> usize {
-        3 + self.user_key.username_arr().len() + self.user_key.password_arr().len()
+        3 + self.user_key.username().len() + self.user_key.password().len()
     }
 }
 

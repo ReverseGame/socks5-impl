@@ -55,10 +55,24 @@ impl UserKey {
         }
     }
 
+    /// Get username as bytes slice (zero-copy)
+    pub fn username(&self) -> &[u8] {
+        self.username.as_bytes()
+    }
+
+    /// Get password as bytes slice (zero-copy)
+    pub fn password(&self) -> &[u8] {
+        self.password.as_bytes()
+    }
+
+    /// Get username as Vec (deprecated, use username() for zero-copy)
+    #[deprecated(since = "0.8.1", note = "Use username() for zero-copy access")]
     pub fn username_arr(&self) -> Vec<u8> {
         self.username.as_bytes().to_vec()
     }
 
+    /// Get password as Vec (deprecated, use password() for zero-copy)
+    #[deprecated(since = "0.8.1", note = "Use password() for zero-copy access")]
     pub fn password_arr(&self) -> Vec<u8> {
         self.password.as_bytes().to_vec()
     }

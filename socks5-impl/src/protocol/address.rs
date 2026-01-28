@@ -145,8 +145,9 @@ impl StreamOperation for Address {
                 let mut buf = [0; 18];
                 stream.read_exact(&mut buf)?;
                 let port = u16::from_be_bytes([buf[16], buf[17]]);
-                let mut addr_bytes = [0; 16];
-                addr_bytes.copy_from_slice(&buf[..16]);
+                // Zero-copy: direct conversion instead of copy_from_slice
+                let addr_bytes: [u8; 16] = buf[..16].try_into()
+                    .expect("slice with incorrect length");
                 Ok(Self::SocketAddress(SocketAddr::from((
                     Ipv6Addr::from(addr_bytes),
                     port,
