@@ -125,22 +125,15 @@ impl StreamOperation for Address {
                 stream.read_exact(&mut domain_buf).await?;
                 let port = stream.read_u16().await?;
 
-                let addr = String::from_utf8(domain_buf).map_err(|err| {
-                    std::io::Error::new(
-                        std::io::ErrorKind::InvalidData,
-                        format!("Invalid address encoding: {err}"),
-                    )
-                })?;
+                let addr = String::from_utf8(domain_buf)
+                    .map_err(|err| std::io::Error::new(std::io::ErrorKind::InvalidData, format!("Invalid address encoding: {err}")))?;
                 Ok(Self::DomainAddress(addr.into_boxed_str(), port))
             }
             AddressType::IPv6 => {
                 let mut addr_bytes = [0; 16];
                 stream.read_exact(&mut addr_bytes).await?;
                 let port = stream.read_u16().await?;
-                Ok(Self::SocketAddress(SocketAddr::from((
-                    Ipv6Addr::from(addr_bytes),
-                    port,
-                ))))
+                Ok(Self::SocketAddress(SocketAddr::from((Ipv6Addr::from(addr_bytes), port))))
             }
         }
     }
@@ -304,40 +297,26 @@ impl TryFrom<&str> for Address {
 
 #[tokio::test]
 async fn test_address() {
+    use std::io::Cursor;
+
     let addr = Address::from((Ipv4Addr::new(127, 0, 0, 1), 8080));
     let mut buf = Vec::new();
     addr.write_to_async_stream(&mut buf).await.unwrap();
     assert_eq!(buf, vec![0x01, 127, 0, 0, 1, 0x1f, 0x90]);
-    let addr2 = Address::retrieve_from_async_stream(&mut Cursor::new(&buf))
-        .await
-        .unwrap();
+    let addr2 = Address::retrieve_from_async_stream(&mut Cursor::new(&buf)).await.unwrap();
     assert_eq!(addr, addr2);
 
     let addr = Address::from((Ipv6Addr::new(0x45, 0xff89, 0, 0, 0, 0, 0, 1), 8080));
     let mut buf = Vec::new();
     addr.write_to_async_stream(&mut buf).await.unwrap();
-    assert_eq!(
-        buf,
-        vec![
-            0x04, 0, 0x45, 0xff, 0x89, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0x1f, 0x90
-        ]
-    );
-    let addr2 = Address::retrieve_from_async_stream(&mut Cursor::new(&buf))
-        .await
-        .unwrap();
+    assert_eq!(buf, vec![0x04, 0, 0x45, 0xff, 0x89, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0x1f, 0x90]);
+    let addr2 = Address::retrieve_from_async_stream(&mut Cursor::new(&buf)).await.unwrap();
     assert_eq!(addr, addr2);
 
     let addr = Address::from(("sex.com", 8080));
     let mut buf = Vec::new();
     addr.write_to_async_stream(&mut buf).await.unwrap();
-    assert_eq!(
-        buf,
-        vec![
-            0x03, 0x07, b's', b'e', b'x', b'.', b'c', b'o', b'm', 0x1f, 0x90
-        ]
-    );
-    let addr2 = Address::retrieve_from_async_stream(&mut Cursor::new(&buf))
-        .await
-        .unwrap();
+    assert_eq!(buf, vec![0x03, 0x07, b's', b'e', b'x', b'.', b'c', b'o', b'm', 0x1f, 0x90]);
+    let addr2 = Address::retrieve_from_async_stream(&mut Cursor::new(&buf)).await.unwrap();
     assert_eq!(addr, addr2);
 }

@@ -26,8 +26,6 @@ impl UdpHeader {
     }
 }
 
-
-
 #[async_trait::async_trait]
 impl StreamOperation for UdpHeader {
     async fn retrieve_from_async_stream<R>(r: &mut R) -> std::io::Result<Self>

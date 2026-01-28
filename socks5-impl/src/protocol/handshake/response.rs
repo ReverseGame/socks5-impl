@@ -21,8 +21,6 @@ impl Response {
     }
 }
 
-
-
 #[async_trait::async_trait]
 impl StreamOperation for Response {
     async fn retrieve_from_async_stream<R>(r: &mut R) -> std::io::Result<Self>

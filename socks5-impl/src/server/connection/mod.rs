@@ -1,9 +1,9 @@
 use self::{associate::UdpAssociate, bind::Bind, connect::Connect};
 use crate::protocol::{self, Address, AsyncStreamOperation, AuthMethod, Command, handshake};
-use stream::Stream;
-use std::time::Duration;
-use tokio::net::TcpStream;
 use crate::server::AuthAdaptor;
+use std::time::Duration;
+use stream::Stream;
+use tokio::net::TcpStream;
 
 pub mod associate;
 pub mod bind;
@@ -22,10 +22,7 @@ impl<O> IncomingConnection<O> {
         IncomingConnection { stream, auth }
     }
     /// Set a timeout for the SOCKS5 handshake.
-    pub async fn authenticate_with_timeout(
-        self,
-        timeout: Duration,
-    ) -> crate::Result<(Authenticated, O)> {
+    pub async fn authenticate_with_timeout(self, timeout: Duration) -> crate::Result<(Authenticated, O)> {
         tokio::time::timeout(timeout, self.authenticate())
             .await
             .map_err(|_| crate::Error::String("handshake timeout".into()))?
@@ -52,10 +49,7 @@ impl<O> IncomingConnection<O> {
             let response = handshake::Response::new(AuthMethod::NoAcceptableMethods);
             response.write_to_async_stream(&mut self.stream).await?;
             let err = "No available handshake method provided by client";
-            Err(crate::Error::Io(std::io::Error::new(
-                std::io::ErrorKind::Unsupported,
-                err,
-            )))
+            Err(crate::Error::Io(std::io::Error::new(std::io::ErrorKind::Unsupported, err)))
         }
     }
 
@@ -71,9 +65,7 @@ impl<O> IncomingConnection<O> {
 
 impl<O> std::fmt::Debug for IncomingConnection<O> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("IncomingConnection")
-            .field("stream", &self.stream)
-            .finish()
+        f.debug_struct("IncomingConnection").field("stream", &self.stream).finish()
     }
 }
 
@@ -113,14 +105,8 @@ impl Authenticated {
                 UdpAssociate::<associate::NeedReply>::new(self.0),
                 req.address,
             )),
-            Command::Bind => Ok(ClientConnection::Bind(
-                Bind::<bind::NeedFirstReply>::new(self.0),
-                req.address,
-            )),
-            Command::Connect => Ok(ClientConnection::Connect(
-                Connect::<connect::NeedReply>::new(self.0),
-                req.address,
-            )),
+            Command::Bind => Ok(ClientConnection::Bind(Bind::<bind::NeedFirstReply>::new(self.0), req.address)),
+            Command::Connect => Ok(ClientConnection::Connect(Connect::<connect::NeedReply>::new(self.0), req.address)),
         }
     }
 }

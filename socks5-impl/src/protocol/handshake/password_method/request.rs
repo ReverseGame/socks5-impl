@@ -23,8 +23,6 @@ impl Request {
     }
 }
 
-
-
 #[async_trait::async_trait]
 impl StreamOperation for Request {
     async fn retrieve_from_async_stream<R>(r: &mut R) -> std::io::Result<Self>
@@ -44,13 +42,11 @@ impl StreamOperation for Request {
 
         let plen = buf[ulen as usize];
         buf.truncate(ulen as usize);
-        let username = String::from_utf8(buf)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+        let username = String::from_utf8(buf).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
 
         let mut password = vec![0; plen as usize];
         r.read_exact(&mut password).await?;
-        let pwd = String::from_utf8(password)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+        let pwd = String::from_utf8(password).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
 
         let user_key = UserKey::new(username, pwd);
         Ok(Self { user_key })

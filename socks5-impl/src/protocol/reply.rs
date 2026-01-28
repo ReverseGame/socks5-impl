@@ -80,10 +80,7 @@ mod tests {
         assert_eq!(Reply::try_from(0x05).unwrap(), Reply::ConnectionRefused);
         assert_eq!(Reply::try_from(0x06).unwrap(), Reply::TtlExpired);
         assert_eq!(Reply::try_from(0x07).unwrap(), Reply::CommandNotSupported);
-        assert_eq!(
-            Reply::try_from(0x08).unwrap(),
-            Reply::AddressTypeNotSupported
-        );
+        assert_eq!(Reply::try_from(0x08).unwrap(), Reply::AddressTypeNotSupported);
         assert!(Reply::try_from(0x09).is_err());
     }
 

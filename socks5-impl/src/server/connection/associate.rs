@@ -1,10 +1,10 @@
 use crate::protocol::{Address, AsyncStreamOperation, Reply, Response, StreamOperation, UdpHeader};
-use stream::Stream;
 use bytes::{Bytes, BytesMut};
 use std::{
     net::SocketAddr,
     sync::atomic::{AtomicUsize, Ordering},
 };
+use stream::Stream;
 use tokio::{
     io::AsyncReadExt,
     net::{ToSocketAddrs, UdpSocket},
@@ -29,11 +29,7 @@ impl<S: Default> UdpAssociate<S> {
     /// Reply to the SOCKS5 client with the given reply and address.
     ///
     /// If encountered an error while writing the reply, the error alongside the original `TcpStream` is returned.
-    pub async fn reply(
-        mut self,
-        reply: Reply,
-        addr: Address,
-    ) -> std::io::Result<UdpAssociate<Ready>> {
+    pub async fn reply(mut self, reply: Reply, addr: Address) -> std::io::Result<UdpAssociate<Ready>> {
         let resp = Response::new(reply, addr);
         resp.write_to_async_stream(&mut *self.stream).await?;
         Ok(UdpAssociate::<Ready>::new(self.stream))
@@ -160,12 +156,7 @@ impl AssociatedUdpSocket {
     }
 
     /// Sends a UDP relay packet to the remote address to which it is connected. The socks5 UDP header will be added to the packet.
-    pub async fn send<P: AsRef<[u8]>>(
-        &self,
-        pkt: P,
-        frag: u8,
-        from_addr: Address,
-    ) -> std::io::Result<usize> {
+    pub async fn send<P: AsRef<[u8]>>(&self, pkt: P, frag: u8, from_addr: Address) -> std::io::Result<usize> {
         let header = UdpHeader::new(frag, from_addr);
         let mut buf = BytesMut::with_capacity(header.len() + pkt.as_ref().len());
         header.write_to_buf(&mut buf);
@@ -175,22 +166,13 @@ impl AssociatedUdpSocket {
     }
 
     /// Sends a UDP relay packet to a specified remote address to which it is connected. The socks5 UDP header will be added to the packet.
-    pub async fn send_to<P: AsRef<[u8]>>(
-        &self,
-        pkt: P,
-        frag: u8,
-        from_addr: Address,
-        to_addr: SocketAddr,
-    ) -> std::io::Result<usize> {
+    pub async fn send_to<P: AsRef<[u8]>>(&self, pkt: P, frag: u8, from_addr: Address, to_addr: SocketAddr) -> std::io::Result<usize> {
         let header = UdpHeader::new(frag, from_addr);
         let mut buf = BytesMut::with_capacity(header.len() + pkt.as_ref().len());
         header.write_to_buf(&mut buf);
         buf.extend_from_slice(pkt.as_ref());
 
-        self.socket
-            .send_to(&buf, to_addr)
-            .await
-            .map(|len| len - header.len())
+        self.socket.send_to(&buf, to_addr).await.map(|len| len - header.len())
     }
 }
 
