@@ -3,8 +3,7 @@
 pub mod error;
 pub mod request;
 pub mod response;
-// TODO: Uncomment in Task 4
-// pub mod auth;
+pub mod auth;
 
 #[cfg(feature = "async")]
 pub mod async_ext;
@@ -12,5 +11,4 @@ pub mod async_ext;
 pub use error::{HttpError, Result};
 pub use request::{HttpRequest, HttpRequestBuilder};
 pub use response::{HttpResponse, HttpResponseBuilder};
-// TODO: Uncomment in Task 4
-// pub use auth::BasicAuth;
+pub use auth::BasicAuth;
