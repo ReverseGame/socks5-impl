@@ -56,6 +56,24 @@ let response = HttpResponseBuilder::new()
     .finish();
 ```
 
+### Success Responses
+
+```rust
+use http_impl::HttpResponse;
+
+// 200 OK (empty)
+let ok = HttpResponse::ok();
+
+// 200 OK with body
+let ok_body = HttpResponse::ok_with_body(b"Success".to_vec(), "text/plain");
+
+// 201 Created
+let created = HttpResponse::created();
+
+// 204 No Content
+let no_content = HttpResponse::no_content();
+```
+
 ### Common Error Responses
 
 ```rust

@@ -71,6 +71,40 @@ impl HttpResponse {
         &self.raw_bytes
     }
 
+    /// Create a 200 OK response
+    pub fn ok() -> Self {
+        HttpResponseBuilder::new()
+            .status(StatusCode::OK)
+            .build()
+            .finish()
+    }
+
+    /// Create a 200 OK response with body
+    pub fn ok_with_body(body: impl Into<Vec<u8>>, content_type: &str) -> Self {
+        HttpResponseBuilder::new()
+            .status(StatusCode::OK)
+            .header("Content-Type", content_type)
+            .body(body.into())
+            .build()
+            .finish()
+    }
+
+    /// Create a 201 Created response
+    pub fn created() -> Self {
+        HttpResponseBuilder::new()
+            .status(StatusCode::CREATED)
+            .build()
+            .finish()
+    }
+
+    /// Create a 204 No Content response
+    pub fn no_content() -> Self {
+        HttpResponseBuilder::new()
+            .status(StatusCode::NO_CONTENT)
+            .build()
+            .finish()
+    }
+
     /// Create a 400 Bad Request response
     pub fn bad_request(message: impl Into<String>) -> Self {
         Self::error_response(StatusCode::BAD_REQUEST, message)

@@ -25,6 +25,28 @@ fn test_builder_pattern() {
 }
 
 #[test]
+fn test_success_responses() {
+    // Test 200 OK (empty)
+    let resp = HttpResponse::ok();
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(resp.body().len(), 0);
+
+    // Test 200 OK with body
+    let resp = HttpResponse::ok_with_body(b"Success".to_vec(), "text/plain");
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(resp.body().as_ref(), b"Success");
+    assert_eq!(resp.header("Content-Type").unwrap(), "text/plain");
+
+    // Test 201 Created
+    let resp = HttpResponse::created();
+    assert_eq!(resp.status(), StatusCode::CREATED);
+
+    // Test 204 No Content
+    let resp = HttpResponse::no_content();
+    assert_eq!(resp.status(), StatusCode::NO_CONTENT);
+}
+
+#[test]
 fn test_error_responses() {
     // Test 400 Bad Request
     let resp = HttpResponse::bad_request("Invalid request format");
