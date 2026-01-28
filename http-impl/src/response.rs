@@ -3,6 +3,37 @@ use bytes::Bytes;
 use http::{HeaderMap, HeaderName, HeaderValue, StatusCode};
 use std::marker::PhantomData;
 
+/// Pre-built HTTP response constants for high-performance scenarios
+/// These can be sent directly without constructing response objects
+pub mod constants {
+    /// HTTP/1.1 200 OK with empty body
+    pub const SUCCESS: &[u8] = b"HTTP/1.1 200 OK\r\n\r\n";
+
+    /// HTTP/1.1 401 Unauthorized
+    pub const UNAUTHORIZED: &[u8] = b"HTTP/1.1 401 Unauthorized\r\n\r\nUnauthorized\r\n";
+
+    /// HTTP/1.1 403 Forbidden
+    pub const FORBIDDEN: &[u8] = b"HTTP/1.1 403 Forbidden\r\n\r\n";
+
+    /// HTTP/1.1 407 Proxy Authentication Required with Basic realm
+    pub const AUTHENTICATION_REQUIRED: &[u8] = b"HTTP/1.1 407 Proxy Authentication Required\r\nProxy-Authenticate: Basic realm=\"Proxy-Login\"\r\n\r\n";
+
+    /// HTTP/1.1 400 Bad Request
+    pub const BAD_REQUEST: &[u8] = b"HTTP/1.1 400 Bad Request\r\n\r\n";
+
+    /// HTTP/1.1 404 Not Found
+    pub const NOT_FOUND: &[u8] = b"HTTP/1.1 404 Not Found\r\n\r\n";
+
+    /// HTTP/1.1 500 Internal Server Error
+    pub const INTERNAL_SERVER_ERROR: &[u8] = b"HTTP/1.1 500 Internal Server Error\r\n\r\n";
+
+    /// HTTP/1.1 502 Bad Gateway
+    pub const BAD_GATEWAY: &[u8] = b"HTTP/1.1 502 Bad Gateway\r\n\r\n";
+
+    /// HTTP/1.1 503 Service Unavailable
+    pub const SERVICE_UNAVAILABLE: &[u8] = b"HTTP/1.1 503 Service Unavailable\r\n\r\n";
+}
+
 pub struct HttpResponse {
     status: StatusCode,
     headers: HeaderMap,

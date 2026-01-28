@@ -106,7 +106,7 @@ let unavail = HttpResponse::service_unavailable("Service temporarily down");
 
 ### Async Usage
 
-```rust,no_run
+```rust,ignore
 # #[tokio::main]
 # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 use http_impl::HttpRequest;
@@ -130,6 +130,31 @@ if let Some(auth) = request.parse_basic_auth().unwrap() {
     println!("Pass: {}", auth.password);
 }
 ```
+
+### Pre-built Response Constants
+
+For high-performance scenarios, use pre-built byte constants that can be sent directly to streams:
+
+```rust,ignore
+use http_impl::constants;
+
+// Direct send to stream (sync)
+stream.write_all(constants::SUCCESS)?;
+
+// Or with async
+stream.write_all(constants::AUTHENTICATION_REQUIRED).await?;
+```
+
+Available constants:
+- `SUCCESS` - HTTP/1.1 200 OK
+- `UNAUTHORIZED` - HTTP/1.1 401 Unauthorized
+- `FORBIDDEN` - HTTP/1.1 403 Forbidden
+- `AUTHENTICATION_REQUIRED` - HTTP/1.1 407 Proxy Authentication Required
+- `BAD_REQUEST` - HTTP/1.1 400 Bad Request
+- `NOT_FOUND` - HTTP/1.1 404 Not Found
+- `INTERNAL_SERVER_ERROR` - HTTP/1.1 500 Internal Server Error
+- `BAD_GATEWAY` - HTTP/1.1 502 Bad Gateway
+- `SERVICE_UNAVAILABLE` - HTTP/1.1 503 Service Unavailable
 
 ## License
 

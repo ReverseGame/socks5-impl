@@ -10,5 +10,5 @@ pub mod async_ext;
 
 pub use error::{HttpError, Result};
 pub use request::{HttpRequest, HttpRequestBuilder};
-pub use response::{HttpResponse, HttpResponseBuilder};
+pub use response::{constants, HttpResponse, HttpResponseBuilder};
 pub use auth::BasicAuth;
