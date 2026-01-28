@@ -36,7 +36,7 @@ let request = HttpRequest::parse(b"GET / HTTP/1.1\r\n\r\n").unwrap();
 use http_impl::HttpRequest;
 
 let raw = b"GET /api/users HTTP/1.1\r\nHost: example.com\r\n\r\n";
-let request = HttpRequest::parse(raw)?;
+let request = HttpRequest::parse(raw).unwrap();
 
 println!("Method: {}", request.method());
 println!("URI: {}", request.uri());
@@ -58,20 +58,26 @@ let response = HttpResponseBuilder::new()
 
 ### Async Usage
 
-```rust
+```rust,no_run
+# #[tokio::main]
+# async fn main() -> Result<(), Box<dyn std::error::Error>> {
 use http_impl::HttpRequest;
 use tokio::net::TcpStream;
 
 let mut stream = TcpStream::connect("example.com:80").await?;
 let request = HttpRequest::from_stream(&mut stream).await?;
+# Ok(())
+# }
 ```
 
 ### Basic Auth
 
 ```rust
-let request = HttpRequest::parse(b"GET / HTTP/1.1\r\nProxy-Authorization: Basic dXNlcjpwYXNz\r\n\r\n")?;
+use http_impl::HttpRequest;
 
-if let Some(auth) = request.parse_basic_auth()? {
+let request = HttpRequest::parse(b"GET / HTTP/1.1\r\nProxy-Authorization: Basic dXNlcjpwYXNz\r\n\r\n").unwrap();
+
+if let Some(auth) = request.parse_basic_auth().unwrap() {
     println!("User: {}", auth.username);
     println!("Pass: {}", auth.password);
 }
