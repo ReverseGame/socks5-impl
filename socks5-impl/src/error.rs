@@ -74,7 +74,6 @@ impl From<Error> for std::io::Error {
     }
 }
 
-#[cfg(feature = "tokio")]
 impl From<tokio::time::error::Elapsed> for Error {
     fn from(e: tokio::time::error::Elapsed) -> Self {
         Error::Io(e.into())

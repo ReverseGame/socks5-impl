@@ -1,4 +1,3 @@
-#[cfg(feature = "tokio")]
 use crate::protocol::AsyncStreamOperation;
 use crate::protocol::StreamOperation;
 use bytes::BufMut;
@@ -6,7 +5,6 @@ use std::{
     io::Cursor,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, ToSocketAddrs},
 };
-#[cfg(feature = "tokio")]
 use tokio::io::{AsyncRead, AsyncReadExt};
 
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, Default)]
@@ -187,7 +185,6 @@ impl StreamOperation for Address {
     }
 }
 
-#[cfg(feature = "tokio")]
 #[async_trait::async_trait]
 impl AsyncStreamOperation for Address {
     async fn retrieve_from_async_stream<R>(stream: &mut R) -> std::io::Result<Self>
@@ -406,7 +403,6 @@ fn test_address() {
     assert_eq!(addr, addr2);
 }
 
-#[cfg(feature = "tokio")]
 #[tokio::test]
 async fn test_address_async() {
     let addr = Address::from((Ipv4Addr::new(127, 0, 0, 1), 8080));

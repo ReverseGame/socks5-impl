@@ -20,7 +20,6 @@ pub use self::{
 };
 pub use bytes::BufMut;
 
-#[cfg(feature = "tokio")]
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 
 /// SOCKS protocol version, either 4 or 5
@@ -82,7 +81,6 @@ pub trait StreamOperation {
     }
 }
 
-#[cfg(feature = "tokio")]
 #[async_trait::async_trait]
 pub trait AsyncStreamOperation: StreamOperation {
     async fn retrieve_from_async_stream<R>(r: &mut R) -> std::io::Result<Self>

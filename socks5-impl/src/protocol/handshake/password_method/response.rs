@@ -1,7 +1,5 @@
-#[cfg(feature = "tokio")]
 use crate::protocol::AsyncStreamOperation;
 use crate::protocol::StreamOperation;
-#[cfg(feature = "tokio")]
 use tokio::io::{AsyncRead, AsyncReadExt};
 
 #[repr(u8)]
@@ -87,7 +85,6 @@ impl StreamOperation for Response {
     }
 }
 
-#[cfg(feature = "tokio")]
 #[async_trait::async_trait]
 impl AsyncStreamOperation for Response {
     async fn retrieve_from_async_stream<R>(r: &mut R) -> std::io::Result<Self>
