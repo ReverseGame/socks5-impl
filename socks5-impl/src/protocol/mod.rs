@@ -59,35 +59,27 @@ impl std::fmt::Display for Version {
     }
 }
 
-pub trait StreamOperation {
-    fn retrieve_from_stream<R>(stream: &mut R) -> std::io::Result<Self>
-    where
-        R: std::io::Read,
-        Self: Sized;
-
-    fn write_to_stream<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
-        let len = self.len();
-        let mut buf = bytes::BytesMut::with_capacity(len);
-        self.write_to_buf(&mut buf);
-        w.write_all(&buf)
-    }
-
-    fn write_to_buf<B: bytes::BufMut>(&self, buf: &mut B);
-
-    fn len(&self) -> usize;
-
-    fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-}
-
+/// SOCKS5 协议流操作 trait（统一序列化和异步 I/O）
 #[async_trait::async_trait]
-pub trait AsyncStreamOperation: StreamOperation {
+pub trait StreamOperation {
+    /// 从异步流中读取并反序列化对象
     async fn retrieve_from_async_stream<R>(r: &mut R) -> std::io::Result<Self>
     where
         R: AsyncRead + Unpin + Send + ?Sized,
         Self: Sized;
 
+    /// 将对象序列化到缓冲区
+    fn write_to_buf<B: BufMut>(&self, buf: &mut B);
+
+    /// 返回序列化后的字节长度
+    fn len(&self) -> usize;
+
+    /// 判断是否为空
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// 将对象序列化并写入异步流（提供默认实现）
     async fn write_to_async_stream<W>(&self, w: &mut W) -> std::io::Result<()>
     where
         W: AsyncWrite + Unpin + Send + ?Sized,
