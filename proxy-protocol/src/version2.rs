@@ -72,60 +72,53 @@ pub struct ProxyHeader {
     pub addresses: Option<ProxyAddresses>,
 }
 
-/// 解析结果
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ProxyProtocol {
-    /// 检测到 PROXY Protocol v2
-    V2(ProxyHeader),
-    /// 非 PROXY 协议连接（普通 TCP 连接）
-    Unknown,
-}
-
 /// 从 TCP 流中解析 PROXY Protocol v2 头部
+///
+/// 此函数要求连接**必须是 PROXY Protocol v2**，如果检测到非 PROXY 协议连接，
+/// 会返回 `Error::InvalidSignature`。
 ///
 /// # 性能特性
 /// - 系统调用：2 次（peek + read_exact）
-/// - 堆分配：最多 1 次（仅地址数据缓冲区，对于非 PROXY 连接为 0 次）
+/// - 堆分配：1 次（地址数据缓冲区）
 /// - 零拷贝：签名检查、字节序解析均在栈上完成
 ///
 /// # 错误
-/// - 返回 `Error` 详细错误信息
-/// - IO 错误会自动转换
+/// - `InvalidSignature`: 不是 PROXY Protocol v2 连接
+/// - `InvalidCommand`: 未知的命令类型
+/// - `InvalidAddressFamily`: 不支持的地址族
+/// - `Io`: I/O 错误
 ///
 /// # 示例
 /// ```no_run
 /// use tokio::net::TcpStream;
-/// use proxy_protocol::version2::{parse_proxy_protocol, ProxyProtocol};
+/// use proxy_protocol::version2::parse_proxy_protocol;
 ///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// let mut stream = TcpStream::connect("127.0.0.1:8080").await?;
-/// match parse_proxy_protocol(&mut stream).await? {
-///     ProxyProtocol::V2(header) => {
-///         if let Some(addrs) = header.addresses {
-///             println!("Real client: {}", addrs.source);
-///         }
-///     }
-///     ProxyProtocol::Unknown => {
-///         // 直接连接，无代理
-///     }
+///
+/// // 如果不是 PROXY 协议，会返回 Err(InvalidSignature)
+/// let header = parse_proxy_protocol(&mut stream).await?;
+///
+/// if let Some(addrs) = header.addresses {
+///     println!("Real client: {}", addrs.source);
 /// }
 /// # Ok(())
 /// # }
 /// ```
-pub async fn parse_proxy_protocol(stream: &mut TcpStream) -> Result<ProxyProtocol> {
+pub async fn parse_proxy_protocol(stream: &mut TcpStream) -> Result<ProxyHeader> {
     // 1. 栈分配固定大小缓冲区（避免堆分配）
     let mut header_buf = [0u8; HEADER_SIZE];
 
     // 2. 一次性 peek 头部（检查是否是 PROXY 协议）
     let n = stream.peek(&mut header_buf).await?;
     if n < HEADER_SIZE {
-        // 数据不足，可能是普通连接
-        return Ok(ProxyProtocol::Unknown);
+        // 数据不足，不是 PROXY 协议
+        return Err(Error::InvalidSignature);
     }
 
     // 3. 快速路径：零拷贝签名检查
     if &header_buf[..SIGNATURE_LENGTH] != PROXY_SIGNATURE {
-        return Ok(ProxyProtocol::Unknown);
+        return Err(Error::InvalidSignature);
     }
 
     // 4. 解析版本和命令
@@ -134,7 +127,7 @@ pub async fn parse_proxy_protocol(stream: &mut TcpStream) -> Result<ProxyProtoco
     let command_byte = version_command & 0x0f;
 
     if version != 2 {
-        return Ok(ProxyProtocol::Unknown);
+        return Err(Error::UnsupportedVersion(version));
     }
 
     let command = match command_byte {
@@ -168,56 +161,12 @@ pub async fn parse_proxy_protocol(stream: &mut TcpStream) -> Result<ProxyProtoco
         None
     };
 
-    Ok(ProxyProtocol::V2(ProxyHeader {
+    Ok(ProxyHeader {
         command,
         address_family,
         protocol,
         addresses,
-    }))
-}
-
-/// 严格模式：要求连接必须是 PROXY Protocol v2，否则返回错误
-///
-/// 此函数适用于**强制要求 PROXY 协议**的场景，例如专用的代理端口。
-/// 如果检测到非 PROXY 协议连接，会返回 `Error::InvalidSignature`。
-///
-/// # 与 `parse_proxy_protocol` 的区别
-///
-/// | 函数 | 检测到非 PROXY 协议 | 使用场景 |
-/// |------|-------------------|---------|
-/// | `parse_proxy_protocol` | 返回 `Ok(ProxyProtocol::Unknown)` | 可选 PROXY 协议 |
-/// | `require_proxy_protocol` | 返回 `Err(InvalidSignature)` | 强制 PROXY 协议 |
-///
-/// # 示例
-///
-/// ```no_run
-/// use tokio::net::TcpStream;
-/// use proxy_protocol::version2::require_proxy_protocol;
-///
-/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-/// let mut stream = TcpStream::connect("127.0.0.1:8080").await?;
-///
-/// // 如果不是 PROXY 协议，会直接返回错误
-/// let header = require_proxy_protocol(&mut stream).await?;
-///
-/// if let Some(addrs) = header.addresses {
-///     println!("Real client: {}", addrs.source);
-/// }
-/// # Ok(())
-/// # }
-/// ```
-///
-/// # 错误
-///
-/// - `InvalidSignature`: 不是 PROXY Protocol v2 连接
-/// - `InvalidCommand`: 未知的命令类型
-/// - `InvalidAddressFamily`: 不支持的地址族
-/// - `Io`: I/O 错误
-pub async fn require_proxy_protocol(stream: &mut TcpStream) -> Result<ProxyHeader> {
-    match parse_proxy_protocol(stream).await? {
-        ProxyProtocol::V2(header) => Ok(header),
-        ProxyProtocol::Unknown => Err(Error::InvalidSignature),
-    }
+    })
 }
 
 /// 从缓冲区解析地址信息（零拷贝）
