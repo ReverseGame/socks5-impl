@@ -3,5 +3,6 @@ resolver = "3"
 members = [
     "stream",
     "socks5-impl",
-    "http-impl"
+    "http-impl",
+    "proxy-protocol"
 ]

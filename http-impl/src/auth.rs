@@ -1,6 +1,6 @@
 use crate::error::{HttpError, Result};
 use crate::request::HttpRequest;
-use base64::{engine::general_purpose, Engine as _};
+use base64::{Engine as _, engine::general_purpose};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BasicAuth {
